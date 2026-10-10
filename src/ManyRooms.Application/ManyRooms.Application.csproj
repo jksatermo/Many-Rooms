@@ -1,0 +1,3 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup><ProjectReference Include="../ManyRooms.Domain/ManyRooms.Domain.csproj" /></ItemGroup>
+</Project>

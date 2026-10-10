@@ -1,0 +1,26 @@
+{
+  "name": "many-rooms",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Many Rooms development commands; web and mobile install independently.",
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "db:up": "node scripts/dev.mjs db-up",
+    "db:down": "node scripts/dev.mjs db-down",
+    "db:migrate": "node scripts/dev.mjs migrate",
+    "db:seed": "node scripts/dev.mjs seed",
+    "dev:api": "node scripts/dev.mjs api",
+    "dev:web": "npm --prefix apps/web run dev",
+    "test:backend": "node scripts/dev.mjs test-backend",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "node scripts/check-scripts.mjs"
+  },
+  "devDependencies": {
+    "prettier": "3.9.9"
+  }
+}

@@ -1,0 +1,115 @@
+name: Verify Many Rooms
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/web/package-lock.json
+      - run: npm ci
+      - run: npm run format:check && npm run lint
+      - run: npm ci --prefix apps/web
+      - run: npm run format:check --prefix apps/web
+      - run: npm run lint --prefix apps/web
+      - run: npm run typecheck --prefix apps/web
+      - run: npm test --prefix apps/web
+      - run: npm run build --prefix apps/web
+
+  backend-and-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/web/package-lock.json
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - run: npm ci
+      - run: npm run setup
+      - run: docker compose config --quiet
+      - run: npm run db:up
+      - run: dotnet restore ManyRooms.sln
+      - run: dotnet format ManyRooms.sln --verify-no-changes --no-restore
+      - run: dotnet build ManyRooms.sln --configuration Release --no-restore
+      - run: npm run db:migrate
+      - run: npm run db:seed
+      - run: npm run test:backend
+      - run: npm ci --prefix apps/web
+      - name: Install browser
+        working-directory: apps/web
+        run: npx playwright install --with-deps chromium
+      - run: npm run build --prefix apps/web
+      - name: Verify persisted responses in the browser
+        run: |
+          npm run dev:api > /tmp/manyrooms-api.log 2>&1 &
+          api_pid=$!
+          npm run preview --prefix apps/web -- --host 127.0.0.1 --port 5173 > /tmp/manyrooms-web.log 2>&1 &
+          web_pid=$!
+          trap 'kill "$api_pid" "$web_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..60}; do
+            if curl --fail --silent http://localhost:5080/health/ready > /dev/null && curl --fail --silent http://127.0.0.1:5173 > /dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          curl --fail --silent http://localhost:5080/health/ready > /dev/null
+          npm run test:e2e --prefix apps/web
+      - name: Save browser evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-evidence
+          path: apps/web/test-results
+          if-no-files-found: ignore
+      - name: Stop local database
+        if: always()
+        run: docker compose down --volumes
+
+  mobile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CI: "1"
+      EXPO_NO_TELEMETRY: "1"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+      - run: npm ci
+        working-directory: apps/mobile
+      - run: npm run format:check && npm run lint && npm run typecheck
+        working-directory: apps/mobile
+      - run: npm test
+        working-directory: apps/mobile
+      - run: npx expo install --check
+        working-directory: apps/mobile
+      - run: npm run build
+        working-directory: apps/mobile
