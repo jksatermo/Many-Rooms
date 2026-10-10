@@ -14,3 +14,6 @@
 *.suo
 *.log
 .DS_Store
+
+artifacts/
+**/*.tsbuildinfo
