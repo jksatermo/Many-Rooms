@@ -6,23 +6,25 @@ import { useResource } from '../useResource';
 import type { Assignment, Decision, DemoContext } from '../types';
 import { ErrorState, Loading, Status } from '../components/Ui';
 import { date, time } from '../format';
+import { Conflicts } from '../components/Conflicts';
 
 export function EventDetails() {
   const context = useOutletContext<DemoContext>();
   const { eventId = '' } = useParams();
+  const [saving, setSaving] = useState<string | null>(null);
   const result = useResource(
     useCallback(
       (signal: AbortSignal) =>
         api.event(context.organizationId, eventId, signal),
       [context.organizationId, eventId],
     ),
+    { refreshOnFocus: saving === null },
   );
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(timer);
   }, []);
-  const [saving, setSaving] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState<Error | null>(null);
 
@@ -197,6 +199,10 @@ export function EventDetails() {
                         </div>
                         <Status value={assignment.status} />
                       </div>
+                      <Conflicts
+                        conflicts={assignment.conflicts}
+                        timeZone={context.timeZone}
+                      />
                       {assignment.isCurrentUser && (
                         <div className="assignment-response">
                           <p>
@@ -279,6 +285,9 @@ export function EventDetails() {
             <span aria-hidden="true">
               <Arrow />
             </span>
+          </Link>
+          <Link className="text-link" to="/app/availability">
+            Manage my unavailable time →
           </Link>
         </aside>
       </div>

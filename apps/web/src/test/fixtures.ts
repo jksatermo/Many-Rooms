@@ -6,12 +6,14 @@ export const context: DemoContext = {
   userId: 'alex',
   displayName: 'Alex Morgan',
   timeZone: 'America/Chicago',
+  role: 'Volunteer',
 };
 export const assignment: Assignment = {
   id: 'assignment-one',
   eventId: 'event-one',
   eventTitle: 'Sunday gathering',
   eventStartsAt: '2099-06-21T15:00:00Z',
+  eventEndsAt: '2099-06-21T17:00:00Z',
   teamName: 'Welcome team',
   roleName: 'Greeter',
   volunteerId: 'alex',
@@ -20,6 +22,7 @@ export const assignment: Assignment = {
   respondedAt: null,
   version: 1,
   isCurrentUser: true,
+  conflicts: [],
 };
 export const event: EventDetail = {
   id: 'event-one',

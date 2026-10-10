@@ -5,9 +5,9 @@ import tseslint from "typescript-eslint";
 import reactHooks from "eslint-plugin-react-hooks";
 
 export default defineConfig([
-  globalIgnores(["dist/**", ".expo/**", "node_modules/**"]),
+  globalIgnores(["dist/**", "dist-web/**", ".expo/**", "node_modules/**"]),
   {
-    files: ["**/*.{ts,tsx,mjs}"],
+    files: ["**/*.{ts,tsx,mjs,cjs}"],
     languageOptions: { globals: { ...globals.browser, ...globals.node } },
   },
   js.configs.recommended,

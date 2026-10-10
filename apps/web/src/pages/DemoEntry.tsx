@@ -4,18 +4,19 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { Brand } from '../components/Brand';
 import { demoSession } from '../session';
+import type { DemoPersona } from '../types';
 
 export function DemoEntry() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
-  async function enter() {
+  async function enter(persona: DemoPersona = 'volunteer') {
     setBusy(true);
     setError('');
     try {
-      await api.context();
-      demoSession.enter();
-      navigate('/app');
+      await api.context(undefined, persona);
+      demoSession.enter(persona);
+      navigate(persona === 'leader' ? '/app/events' : '/app');
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -51,13 +52,14 @@ export function DemoEntry() {
           <span className="pill">Development demo</span>
           <h2>A shared space to explore.</h2>
           <p>
-            You’ll enter as a fictional volunteer. No account or password
-            needed.
+            Explore as Alex Morgan, a fictional volunteer, or Jamie Chen, a demo
+            leader. No account or password needed.
           </p>
           <ul>
             <li>Explore upcoming events and volunteer teams.</li>
             <li>Accept or decline your own assignments.</li>
             <li>Refresh to see your saved response.</li>
+            <li>Add unavailable time and see schedule conflicts.</li>
           </ul>
           <div className="demo-disclosure">
             <strong>This is a shared development demo.</strong>
@@ -82,6 +84,20 @@ export function DemoEntry() {
               <Arrow />
             </span>
           </button>
+          <button
+            className="button button-outline button-wide leader-entry"
+            onClick={() => void enter('leader')}
+            disabled={busy}
+          >
+            Enter demo leader view{' '}
+            <span aria-hidden="true">
+              <Arrow />
+            </span>
+          </button>
+          <p className="entry-help">
+            Demo leaders can review all assignment statuses, see conflicts, and
+            add an assignment. Both personas are public development tools.
+          </p>
           <p className="entry-help">
             The demo must be enabled on the development API.
           </p>

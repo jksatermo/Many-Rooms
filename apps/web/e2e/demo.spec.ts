@@ -121,6 +121,7 @@ test('main screens meet automated WCAG AA checks and fit narrow phones', async (
         })),
       })),
     ).toEqual([]);
+    await page.locator('main').focus();
   };
   await page.goto('/');
   await expect(

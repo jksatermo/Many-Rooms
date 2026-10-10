@@ -3,9 +3,16 @@ import type {
   Dashboard,
   Decision,
   DemoContext,
+  DemoPersona,
   EventDetail,
   EventSummary,
+  NewAssignment,
+  ScheduleConflict,
+  TeamMember,
+  Unavailability,
+  UnavailabilityInput,
 } from './types';
+import { demoSession } from './session';
 
 export class ApiError extends Error {
   constructor(
@@ -31,7 +38,12 @@ async function request<T>(
     response = await fetch(`${baseUrl}${path}`, {
       ...options,
       headers: {
-        ...(demo ? { 'X-ManyRooms-Demo': 'true' } : {}),
+        ...(demo
+          ? {
+              'X-ManyRooms-Demo':
+                demoSession.persona() === 'leader' ? 'leader' : 'true',
+            }
+          : {}),
         ...(options.body ? { 'Content-Type': 'application/json' } : {}),
         ...options.headers,
       },
@@ -57,14 +69,23 @@ async function request<T>(
           'Something went wrong. Please try again.';
     throw new ApiError(response.status, detail);
   }
-  return response.json() as Promise<T>;
+  return response.status === 204
+    ? (undefined as T)
+    : (response.json() as Promise<T>);
 }
 
 const org = (organizationId: string) =>
   `/api/organizations/${encodeURIComponent(organizationId)}`;
 export const api = {
-  context: (signal?: AbortSignal) =>
-    request<DemoContext>('/api/demo/context', { signal }, false),
+  context: (
+    signal?: AbortSignal,
+    persona: DemoPersona = demoSession.persona(),
+  ) =>
+    request<DemoContext>(
+      `/api/demo/context${persona === 'leader' ? '?persona=leader' : ''}`,
+      { signal },
+      false,
+    ),
   dashboard: (id: string, signal?: AbortSignal) =>
     request<Dashboard>(`${org(id)}/dashboard`, { signal }),
   events: (id: string, signal?: AbortSignal) =>
@@ -80,5 +101,46 @@ export const api = {
         method: 'PUT',
         body: JSON.stringify({ decision, expectedVersion: assignment.version }),
       },
+    ),
+  availability: (id: string, signal?: AbortSignal) =>
+    request<Unavailability[]>(`${org(id)}/availability`, { signal }),
+  createAvailability: (id: string, input: UnavailabilityInput) =>
+    request<Unavailability>(`${org(id)}/availability`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  updateAvailability: (
+    id: string,
+    current: Unavailability,
+    input: UnavailabilityInput,
+  ) =>
+    request<Unavailability>(
+      `${org(id)}/availability/${encodeURIComponent(current.id)}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ ...input, expectedVersion: current.version }),
+      },
+    ),
+  removeAvailability: (id: string, current: Unavailability) =>
+    request<void>(
+      `${org(id)}/availability/${encodeURIComponent(current.id)}?expectedVersion=${current.version}`,
+      { method: 'DELETE' },
+    ),
+  leaderEvent: (id: string, eventId: string, signal?: AbortSignal) =>
+    request<EventDetail>(
+      `${org(id)}/leader/events/${encodeURIComponent(eventId)}`,
+      { signal },
+    ),
+  teamMembers: (id: string, signal?: AbortSignal) =>
+    request<TeamMember[]>(`${org(id)}/leader/team-members`, { signal }),
+  previewAssignment: (id: string, eventId: string, input: NewAssignment) =>
+    request<{ conflicts: ScheduleConflict[] }>(
+      `${org(id)}/leader/events/${encodeURIComponent(eventId)}/assignments/preview`,
+      { method: 'POST', body: JSON.stringify(input) },
+    ),
+  createAssignment: (id: string, eventId: string, input: NewAssignment) =>
+    request<Assignment>(
+      `${org(id)}/leader/events/${encodeURIComponent(eventId)}/assignments`,
+      { method: 'POST', body: JSON.stringify(input) },
     ),
 };

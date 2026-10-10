@@ -19,6 +19,17 @@ export default function RootLayout() {
           name="demo"
           options={{ title: "Your community", headerBackTitle: "Home" }}
         />
+        <Stack.Screen
+          name="events/[id]"
+          options={{ title: "Event details", headerBackTitle: "Community" }}
+        />
+        <Stack.Screen
+          name="availability"
+          options={{
+            title: "Your unavailable time",
+            headerBackTitle: "Community",
+          }}
+        />
       </Stack>
     </>
   );

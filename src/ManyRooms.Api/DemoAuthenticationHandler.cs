@@ -16,10 +16,15 @@ public sealed class DemoAuthenticationHandler(IOptionsMonitor<AuthenticationSche
     {
         if (!environment.IsDevelopment() || !configuration.GetValue<bool>("Demo:Enabled"))
             return Task.FromResult(AuthenticateResult.NoResult());
-        if (Request.Headers["X-ManyRooms-Demo"].ToString() != "true")
+        var persona = Request.Headers["X-ManyRooms-Demo"].ToString();
+        if (persona is not ("true" or "leader"))
             return Task.FromResult(AuthenticateResult.NoResult());
+        // Only fixed fictional identities are selectable. Roles are checked against database membership,
+        // never taken from a caller-supplied role or trusted merely because this header says "leader".
+        var leader = persona == "leader";
         var identity = new ClaimsIdentity(
-            [new Claim(ClaimTypes.NameIdentifier, DemoData.UserId.ToString()), new Claim(ClaimTypes.Name, "Alex Morgan")], SchemeName);
+            [new Claim(ClaimTypes.NameIdentifier, (leader ? DemoData.LeaderUserId : DemoData.UserId).ToString()),
+                new Claim(ClaimTypes.Name, leader ? "Jamie Chen" : "Alex Morgan")], SchemeName);
         return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), SchemeName)));
     }
 }

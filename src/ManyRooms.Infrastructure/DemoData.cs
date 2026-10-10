@@ -9,6 +9,7 @@ public static class DemoData
     public static readonly Guid OrganizationId = Guid.Parse("10000000-0000-0000-0000-000000000001");
     public static readonly Guid OtherOrganizationId = Guid.Parse("10000000-0000-0000-0000-000000000002");
     public static readonly Guid UserId = Guid.Parse("20000000-0000-0000-0000-000000000001");
+    public static readonly Guid LeaderUserId = Guid.Parse("20000000-0000-0000-0000-000000000002");
     public static readonly Guid FirstEventId = Guid.Parse("60000000-0000-0000-0000-000000000001");
     public static readonly Guid FirstAssignmentId = Guid.Parse("70000000-0000-0000-0000-000000000001");
 
@@ -16,7 +17,14 @@ public static class DemoData
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(481729)", cancellationToken);
-        if (await db.Organizations.AnyAsync(x => x.Id == OrganizationId, cancellationToken)) return;
+        if (!await db.Organizations.AnyAsync(x => x.Id == OrganizationId, cancellationToken))
+            await SeedInitialAsync(db, clock, cancellationToken);
+        await SeedSchedulingAsync(db, clock, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+    }
+
+    private static async Task SeedInitialAsync(ManyRoomsDbContext db, TimeProvider clock, CancellationToken cancellationToken)
+    {
         var now = clock.GetUtcNow();
         var daysUntilSunday = (7 - (int)now.DayOfWeek) % 7;
         if (daysUntilSunday == 0) daysUntilSunday = 7;
@@ -102,7 +110,80 @@ public static class DemoData
             RespondedAt = now
         }));
         await db.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
+    }
+
+    private static async Task SeedSchedulingAsync(ManyRoomsDbContext db, TimeProvider clock, CancellationToken cancellationToken)
+    {
+        // The fixed workshop is an additive upgrade marker. Re-seeding never recreates unavailable
+        // times a volunteer deliberately removed, or overwrites any existing response or event date.
+        if (await db.Events.AnyAsync(x => x.Id == Id(6, 5), cancellationToken)) return;
+        var firstEvent = await db.Events.SingleAsync(x => x.Id == FirstEventId, cancellationToken);
+        var now = clock.GetUtcNow();
+        var day = firstEvent.StartsAt;
+        var workshop = new Event
+        {
+            Id = Id(6, 5),
+            OrganizationId = OrganizationId,
+            Title = "Community welcome workshop",
+            Description = "A small group practicing ways to make new neighbors feel welcome. This demo intentionally overlaps another commitment so leaders can talk through the schedule.",
+            Location = "Cedar Grove · Workshop room",
+            StartsAt = day.AddMinutes(30),
+            EndsAt = day.AddMinutes(90)
+        };
+        var garden = new Event
+        {
+            Id = Id(6, 6),
+            OrganizationId = OrganizationId,
+            Title = "Neighborhood garden planning",
+            Description = "Plan a shared garden with neighbors. This fictional schedule includes an overlap for the scheduling demo.",
+            Location = "Cedar Grove · Garden room",
+            StartsAt = day.AddMinutes(60),
+            EndsAt = day.AddMinutes(120)
+        };
+        var members = await db.TeamMembers.Where(x => x.OrganizationId == OrganizationId).ToDictionaryAsync(x => x.Id, cancellationToken);
+        VolunteerAssignment Assignment(int number, Event item, int memberNumber, string role, AssignmentStatus status) => new()
+        {
+            Id = Id(7, number),
+            OrganizationId = OrganizationId,
+            EventId = item.Id,
+            Event = item,
+            TeamMemberId = Id(5, memberNumber),
+            TeamMember = members[Id(5, memberNumber)],
+            RoleName = role,
+            Status = status,
+            Version = status == AssignmentStatus.Pending ? 1 : 2,
+            RespondedAt = status == AssignmentStatus.Pending ? null : now,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+        var assignments = new[]
+        {
+            Assignment(9, workshop, 3, "Practice host", AssignmentStatus.Pending),
+            Assignment(10, garden, 5, "Garden planning host", AssignmentStatus.Accepted),
+            Assignment(11, workshop, 4, "Refreshments", AssignmentStatus.Declined),
+            Assignment(12, garden, 6, "Discussion host", AssignmentStatus.Pending)
+        };
+        var unavailable = VolunteerUnavailability.Create(OrganizationId, Id(3, 1), day.AddMinutes(45), day.AddMinutes(75),
+            "Family appointment", now);
+        unavailable.Id = Id(8, 1);
+        var leaderUnavailable = VolunteerUnavailability.Create(OrganizationId, Id(3, 2), day, day.AddMinutes(15),
+            "Private demo note visible only to Jamie", now);
+        leaderUnavailable.Id = Id(8, 2);
+        db.Events.AddRange(workshop, garden);
+        db.Assignments.AddRange(assignments);
+        db.Unavailability.AddRange(unavailable, leaderUnavailable);
+        db.Responses.AddRange(assignments.Where(x => x.Status != AssignmentStatus.Pending).Select(x => new AssignmentResponse
+        {
+            OrganizationId = OrganizationId,
+            AssignmentId = x.Id,
+            MembershipId = x.TeamMember.MembershipId,
+            Decision = x.Status,
+            AssignmentVersion = x.Version,
+            RespondedAt = now,
+            CreatedAt = now,
+            UpdatedAt = now
+        }));
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     private static Guid Id(int group, int number) => Guid.Parse($"{group}0000000-0000-0000-0000-{number:000000000000}");

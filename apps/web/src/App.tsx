@@ -6,6 +6,8 @@ import { DemoEntry } from './pages/DemoEntry';
 import { Dashboard } from './pages/Dashboard';
 import { Events } from './pages/Events';
 import { EventDetails } from './pages/EventDetails';
+import { Availability } from './pages/Availability';
+import { LeaderEvent } from './pages/LeaderEvent';
 
 export function App() {
   const { pathname } = useLocation();
@@ -30,6 +32,8 @@ export function App() {
           <Route index element={<Dashboard />} />
           <Route path="events" element={<Events />} />
           <Route path="events/:eventId" element={<EventDetails />} />
+          <Route path="availability" element={<Availability />} />
+          <Route path="leader/events/:eventId" element={<LeaderEvent />} />
         </Route>
         <Route
           path="*"

@@ -64,7 +64,7 @@ jobs:
         working-directory: apps/web
         run: npx playwright install --with-deps chromium
       - run: npm run build --prefix apps/web
-      - name: Verify persisted responses in the browser
+      - name: Verify responses, availability, conflicts, and leader boundaries in the browser
         run: |
           npm run dev:api > /tmp/manyrooms-api.log 2>&1 &
           api_pid=$!
@@ -111,5 +111,9 @@ jobs:
         working-directory: apps/mobile
       - run: npx expo install --check
         working-directory: apps/mobile
-      - run: npm run build
+      - name: Export Android JavaScript and Hermes bundle
+        run: npm run build
+        working-directory: apps/mobile
+      - name: Validate Expo browser preview routes
+        run: npm run build:web
         working-directory: apps/mobile

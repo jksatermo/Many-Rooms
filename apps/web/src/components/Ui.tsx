@@ -52,12 +52,17 @@ export function ErrorState({
 export function EventCard({
   event,
   timeZone,
+  leader = false,
 }: {
   event: EventSummary;
   timeZone: string;
+  leader?: boolean;
 }) {
   return (
-    <Link className="event-card" to={`/app/events/${event.id}`}>
+    <Link
+      className="event-card"
+      to={`/app/${leader ? 'leader/' : ''}events/${event.id}`}
+    >
       <div className="date-tile" aria-hidden="true">
         <span>{shortMonth(event.startsAt, timeZone)}</span>
         <strong>{day(event.startsAt, timeZone)}</strong>
