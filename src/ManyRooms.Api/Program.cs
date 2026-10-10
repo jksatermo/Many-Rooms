@@ -16,7 +16,11 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<CommunityStore>();
 builder.Services.AddScoped<ICommunityQueries>(provider => provider.GetRequiredService<CommunityStore>());
 builder.Services.AddScoped<IAssignmentStore>(provider => provider.GetRequiredService<CommunityStore>());
+builder.Services.AddScoped<IAvailabilityStore>(provider => provider.GetRequiredService<CommunityStore>());
+builder.Services.AddScoped<ILeaderAssignmentStore>(provider => provider.GetRequiredService<CommunityStore>());
 builder.Services.AddScoped<AssignmentResponseService>();
+builder.Services.AddScoped<AvailabilityService>();
+builder.Services.AddScoped<LeaderAssignmentService>();
 if (demoEnabled) builder.Services.AddScoped<ISmsProvider, ConsoleSmsProvider>();
 builder.Services.AddAuthentication(DemoAuthenticationHandler.SchemeName)
     .AddScheme<AuthenticationSchemeOptions, DemoAuthenticationHandler>(DemoAuthenticationHandler.SchemeName, _ => { });
@@ -26,7 +30,7 @@ builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddOpenApi();
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
     .WithOrigins(builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [])
-    .WithMethods("GET", "PUT").WithHeaders("Content-Type", "X-ManyRooms-Demo")));
+    .WithMethods("GET", "POST", "PUT", "DELETE").WithHeaders("Content-Type", "X-ManyRooms-Demo")));
 var app = builder.Build();
 
 if (args.Contains("--seed"))
@@ -61,10 +65,13 @@ app.MapGet("/health/ready", async (ManyRoomsDbContext db, CancellationToken canc
     await db.Database.CanConnectAsync(cancellationToken)
         ? Results.Ok(new { status = "ready" })
         : Results.Problem(statusCode: 503, title: "Database unavailable")).AllowAnonymous();
-app.MapGet("/api/demo/context", async (ICommunityQueries queries, CancellationToken cancellationToken) =>
+app.MapGet("/api/demo/context", async (string? persona, ICommunityQueries queries, CancellationToken cancellationToken) =>
 {
     if (!demoEnabled) return Results.NotFound();
-    var context = await queries.GetDemoContextAsync(DemoData.OrganizationId, DemoData.UserId, cancellationToken);
+    if (persona is not (null or "volunteer" or "leader"))
+        return Results.Problem(statusCode: 400, title: "Invalid demo persona", detail: "Choose volunteer or leader.");
+    var context = await queries.GetDemoContextAsync(DemoData.OrganizationId,
+        persona == "leader" ? DemoData.LeaderUserId : DemoData.UserId, cancellationToken);
     return context is null ? Results.Problem(statusCode: 503, title: "Demo is not seeded", detail: "Run the documented database migration and seed commands.") : Results.Ok(context);
 }).AllowAnonymous().Produces<DemoContextDto>().ProducesProblem(503)
     .WithSummary("Get the explicitly shared, fictional development demo context");
@@ -95,6 +102,7 @@ organization.MapPut("/assignments/{assignmentId:guid}/response", async (Guid org
     .Produces<AssignmentDto>().ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409)
     .WithSummary("Accept or decline your assignment before its event starts")
     .WithDescription("Development demo requests use X-ManyRooms-Demo: true (Swagger supplies it). Send the current assignment version; a stale response returns 409. Production authentication is not implemented.");
+organization.MapSchedulingEndpoints();
 await app.RunAsync();
 
 static Guid CurrentUser(HttpContext context) => Guid.Parse(context.User.FindFirstValue(ClaimTypes.NameIdentifier)!);

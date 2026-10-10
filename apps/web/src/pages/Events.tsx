@@ -21,7 +21,11 @@ export function Events() {
           <h1>
             Good things ahead<span className="heading-period">.</span>
           </h1>
-          <p>A place to gather, connect, and lend a hand.</p>
+          <p>
+            {context.role === 'Leader'
+              ? 'Demo leader schedule · See responses, review conflicts, and make room for your team.'
+              : 'A place to gather, connect, and lend a hand.'}
+          </p>
         </div>
       </div>
       <section className="events-page">
@@ -40,6 +44,7 @@ export function Events() {
                 key={event.id}
                 event={event}
                 timeZone={context.timeZone}
+                leader={context.role === 'Leader'}
               />
             ))}
           </div>

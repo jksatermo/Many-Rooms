@@ -8,11 +8,23 @@ I’m building it to make volunteer coordination easier for the people organizin
 
 ## Current milestone
 
-The first milestone connects a public landing page and volunteer dashboard to an ASP.NET Core API and PostgreSQL. In the development demo, a volunteer can open an event, see team assignments, accept or decline their own assignment, and refresh to retrieve the saved response. The API enforces membership and assignment ownership, checks stale updates, and records response history.
+Milestone 2 extends the working volunteer response workflow across React web and Expo mobile. Volunteers can open events, accept or decline their own assignments, and manage explicit unavailable time ranges. PostgreSQL stores the responses and availability; reopening a screen retrieves the current server state.
 
-The Expo mobile app establishes the same brand, API configuration, and demo/dashboard foundation. Web and mobile do not yet have feature parity. Production authentication, scheduling conflict detection, SMS delivery, recurring events, and organization administration are roadmap items, not finished features.
+The API identifies overlapping assignments and assignments that overlap unavailable time. Both clients show concise, advisory conflict information. A small web leader demo provides an event assignment overview and lets a leader preview and create an assignment for an existing team member. Conflicts never silently cancel an assignment or prevent a volunteer from responding.
+
+Production authentication, recurring availability/events, organization administration, reminders, and SMS delivery remain roadmap work. The mobile workflow has automated native-component tests and bundle validation; it has not yet been validated on a native device or simulator.
 
 **The demo is development-only, fictional, and shared. It is not production authentication.**
+
+## What Milestone 2 demonstrates
+
+- One ASP.NET Core response workflow used by web and native mobile clients.
+- Reusable application/domain rules for time-range overlap, independent of UI rendering.
+- An additive EF Core migration with organization-scoped relational constraints.
+- Ownership and leader-role checks against organization memberships.
+- Optimistic concurrency for responses and availability edits.
+- Accessible status feedback, responsive web layouts, and native navigation/touch controls.
+- Unit, PostgreSQL integration, and browser tests, including migration and conflict scenarios.
 
 ## Screenshots
 
@@ -22,7 +34,9 @@ Captured from the working local demo, using fictional seed data:
 
 ![Volunteer dashboard with upcoming events and assignment statuses](docs/screenshots/many-rooms-dashboard.png)
 
-See the [event response screen](docs/screenshots/many-rooms-event.png) and [mobile-width dashboard](docs/screenshots/many-rooms-dashboard-mobile.png). Browser validation also saves screenshots under `apps/web/test-results/` (ignored by Git), and GitHub Actions uploads them as a run artifact. Native mobile device screenshots will be added after device validation.
+Milestone 2 screens: [volunteer conflicts](docs/screenshots/many-rooms-volunteer-conflicts.png), [availability](docs/screenshots/many-rooms-availability.png), and [leader assignment overview](docs/screenshots/many-rooms-leader-schedule.png).
+
+The [Expo assignment workflow](docs/screenshots/many-rooms-expo-browser-assignment.png) and [Expo availability](docs/screenshots/many-rooms-expo-browser-availability.png) screenshots show the **Expo browser preview**, using the same API. They are not native device captures. See also the [web event response screen](docs/screenshots/many-rooms-event.png) and [mobile-width web dashboard](docs/screenshots/many-rooms-dashboard-mobile.png). Browser validation saves additional evidence under `apps/web/test-results/` (ignored by Git), uploaded by GitHub Actions. Native screenshots will follow device validation.
 
 ## Architecture
 
@@ -39,12 +53,12 @@ flowchart LR
   Infrastructure --> Database[(PostgreSQL)]
 ```
 
-- **Domain:** entities and assignment response rules, independent of HTTP and EF Core.
-- **Application:** assignment-response use case, DTOs, and small persistence/SMS interfaces.
+- **Domain:** entities, assignment response rules, and time-range rules, independent of HTTP and EF Core.
+- **Application:** responses, availability, conflict detection, leader scheduling, DTOs, and narrow persistence/SMS interfaces.
 - **Infrastructure:** EF mappings, migrations, queries, transactional persistence, and demo data.
 - **API:** ASP.NET authentication/authorization boundary, REST endpoints, validation, ProblemDetails, and OpenAPI.
 
-This keeps business rules reusable for future mobile and SMS responses while avoiding microservices, message buses, and generic repository layers. Clients have separate npm lockfiles so Expo’s React Native compatibility requirements do not dictate web dependencies.
+This keeps business rules shared across web/mobile and ready for future SMS responses while avoiding microservices, message buses, and generic repository layers. Clients have separate npm lockfiles so Expo’s React Native compatibility requirements do not dictate web dependencies. See [time ranges and conflict policy](docs/scheduling.md) for the precise rules and timezone conventions.
 
 ```text
 apps/web/                         React + TypeScript + Vite
@@ -94,7 +108,9 @@ npm ci
 npm run dev
 ```
 
-Open **http://localhost:5173**. Choose the demo entry, read the demo explanation, and continue as the fictional volunteer. Open an upcoming event, choose **Accept** or **Decline** on your assignment, then refresh. The response is stored in PostgreSQL, not browser storage.
+Open **http://localhost:5173**. Enter as fictional volunteer **Alex Morgan**, open an upcoming event, choose **Accept** or **Decline**, then refresh. Open availability to add, edit, or remove an unavailable range. Assignments with overlapping commitments or unavailable time display a schedule-conflict explanation from the server.
+
+The separate, explicitly labeled **leader demo** uses fictional leader **Jamie Chen**. Open an event to inspect response statuses and conflicts. Choose an existing team member and role to preview an assignment’s conflicts, then save if appropriate. The preview is advisory; saving checks the current server state again.
 
 The API listens at **http://localhost:5080**. Inspect it at **http://localhost:5080/swagger**; its OpenAPI document is `/openapi/v1.json`. Readiness is `/health/ready` and liveness is `/health`.
 
@@ -110,6 +126,8 @@ npm run db:migrate  # Restore local dotnet-ef and apply committed migrations
 npm run db:seed     # Add fictional demo data; preserve existing responses
 npm run db:down     # Stop PostgreSQL; retain the volume
 ```
+
+**Upgrading a Milestone 1 database:** run `npm run db:migrate`, then `npm run db:seed`. The new forward migration adds availability without rewriting the initial migration. The additive seed keeps existing assignments, responses, and event dates, and adds fictional conflict examples once. It does not recreate an unavailable range after a volunteer removes it.
 
 To recreate **only this local demo database**, the following intentionally deletes its Docker volume and all local responses:
 
@@ -143,13 +161,13 @@ npm run test
 npm run build
 ```
 
-The mobile build command exports the Android JavaScript bundle. It is **not** a signed native APK/AAB or an iOS build. Native device validation and distribution signing require the relevant device/toolchain and your own Expo/Apple/Google configuration.
+The mobile build command exports the Android JavaScript/Hermes bundle. It is **not** a signed native APK/AAB or an iOS build. Native device validation and distribution signing require the relevant device/toolchain and your own Expo/Apple/Google configuration. Use [the native validation checklist](docs/mobile-validation.md) for the remaining device checks.
 
 ## Demo identity and authorization
 
-`GET /api/demo/context` exposes the fictional demo identity only when the API is in `Development` and `Demo:Enabled` is true. Clients then send `X-ManyRooms-Demo: true`. The server chooses one fixed seeded user; callers cannot select an arbitrary user ID in that header.
+`GET /api/demo/context` exposes the fictional volunteer identity only when the API is in `Development` and `Demo:Enabled` is true. Clients send `X-ManyRooms-Demo: true` for Alex. The web leader entry requests `?persona=leader` and sends `X-ManyRooms-Demo: leader` for Jamie. The server supports only these fixed fictional identities, not arbitrary user IDs. Both values are public demo controls, not credentials.
 
-Every organization endpoint checks a real database membership. The response use case also checks that the current user owns the assignment. Database composite foreign keys keep organization-scoped records attached to parents in the same organization. This is a foundation for tenant isolation; it does not make the shared demo header a secret or a real login.
+Every organization endpoint checks a real database membership. Responses and availability edits check ownership. Leader endpoints check the membership’s stored role; a client label or selected screen does not grant authority. Database composite foreign keys keep organization-scoped records attached to parents in the same organization. This is a foundation for tenant isolation; it does not make the shared demo mechanism a real login.
 
 Production will replace the demo handler with a validated identity provider through ASP.NET authentication, map its subject to a user, and retain the membership/ownership checks. See [authentication and organization boundaries](docs/authentication.md).
 
@@ -173,10 +191,12 @@ npm run lint --prefix apps/mobile
 npm run typecheck --prefix apps/mobile
 npm test --prefix apps/mobile
 npm run build --prefix apps/mobile
+npm run build:web --prefix apps/mobile
+npm run check:dependencies --prefix apps/mobile
 docker compose config --quiet
 ```
 
-`npm run test:backend` uses a dedicated `manyrooms_test` database and passes `TEST_DATABASE_CONNECTION`. API integration tests use real PostgreSQL; application tests cover decisions, ownership, and stale/closed assignments. Do not point integration tests at an application or production database.
+`npm run test:backend` uses a dedicated `manyrooms_test` database and passes `TEST_DATABASE_CONNECTION`. API integration tests use real PostgreSQL; application tests cover decisions, availability validation, interval boundaries, ownership, and stale/closed assignments. Integration tests also cover leader authorization, privacy, database constraints, and migration preservation. Do not point integration tests at an application or production database.
 
 For the complete browser flow, keep API and web running:
 
@@ -198,11 +218,11 @@ The current stable Expo SDK has upstream dependency advisories reported by `npm 
 
 ## Roadmap
 
-1. Production authentication, invitation-based memberships, and organization roles.
-2. Volunteer availability and scheduling conflict visibility.
-3. Leader scheduling tools, team management, and recurring events.
-4. Mobile event details and assignment responses using the existing API.
+1. Production authentication, invitations, and membership administration.
+2. Native device validation, compatible dependency fixes, and distribution preparation.
+3. Leader reassignment and conflict-resolution workflows with volunteer communication.
+4. Recurring events and availability with explicit timezone/DST behavior.
 5. Reminder/notification delivery and authenticated SMS Accept/Decline replies.
 6. Calendar integrations and focused team communication.
 
-The first milestone deliberately does not implement every church-management feature. Keep future work focused on demonstrated needs and preserve a simple, welcoming experience.
+Keep future work focused on demonstrated needs and preserve a simple, welcoming experience.

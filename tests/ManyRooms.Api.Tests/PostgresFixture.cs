@@ -49,6 +49,13 @@ public sealed class PostgresFixture : IAsyncLifetime
         return client;
     }
 
+    public HttpClient CreateLeaderClient()
+    {
+        var client = CreateClient(demo: false);
+        client.DefaultRequestHeaders.Add("X-ManyRooms-Demo", "leader");
+        return client;
+    }
+
     public async Task<VolunteerAssignment> CreateAssignmentAsync(bool own = true, bool started = false)
     {
         await using var db = CreateDbContext();
@@ -150,4 +157,7 @@ internal sealed class GatedAssignmentStore(CommunityStore store, ConcurrentReadG
 
     public Task SaveResponseAsync(VolunteerAssignment assignment, AssignmentResponse response, CancellationToken cancellationToken) =>
         store.SaveResponseAsync(assignment, response, cancellationToken);
+
+    public Task<IReadOnlyList<ScheduleConflictDto>> GetConflictsAsync(VolunteerAssignment assignment, CancellationToken cancellationToken) =>
+        store.GetConflictsAsync(assignment, cancellationToken);
 }

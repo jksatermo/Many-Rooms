@@ -161,13 +161,13 @@ export function Landing() {
           </div>
           <div>
             <p>
-              This first chapter brings events and volunteer confirmations
-              together in a working demo.
+              Our working demo brings events, unavailable time, and clear
+              schedule conflicts together. Volunteers can respond to their
+              assignments on web and mobile.
             </p>
             <p className="muted">
-              Ahead: mobile responses, scheduling conflict tools, reminders, and
-              SMS replies for people who prefer a text. These features are on
-              the roadmap.
+              Ahead: recurring events, reminders, and SMS replies for people who
+              prefer a text. These features are on the roadmap.
             </p>
             <Link className="text-link" to="/demo">
               See what’s here today{' '}

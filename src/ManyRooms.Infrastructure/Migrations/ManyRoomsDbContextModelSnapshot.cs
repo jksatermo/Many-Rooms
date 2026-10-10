@@ -320,6 +320,51 @@ namespace ManyRooms.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("ManyRooms.Domain.VolunteerUnavailability", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("EndsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("MembershipId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("StartsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("OrganizationId", "Id");
+
+                    b.HasIndex("OrganizationId", "MembershipId", "StartsAt");
+
+                    b.ToTable("Unavailability", t =>
+                        {
+                            t.HasCheckConstraint("CK_Unavailability_Dates", "\"EndsAt\" > \"StartsAt\"");
+
+                            t.HasCheckConstraint("CK_Unavailability_Version", "\"Version\" >= 1");
+                        });
+                });
+
             modelBuilder.Entity("ManyRooms.Domain.AssignmentResponse", b =>
                 {
                     b.HasOne("ManyRooms.Domain.Organization", null)
@@ -430,6 +475,22 @@ namespace ManyRooms.Infrastructure.Migrations
                     b.Navigation("Event");
 
                     b.Navigation("TeamMember");
+                });
+
+            modelBuilder.Entity("ManyRooms.Domain.VolunteerUnavailability", b =>
+                {
+                    b.HasOne("ManyRooms.Domain.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ManyRooms.Domain.OrganizationMembership", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId", "MembershipId")
+                        .HasPrincipalKey("OrganizationId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 #pragma warning restore 612, 618
         }

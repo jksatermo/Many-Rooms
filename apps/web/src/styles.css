@@ -1802,3 +1802,264 @@ svg {
   vertical-align: -0.12em;
   flex-shrink: 0;
 }
+
+/* Scheduling extends the existing paper-and-sage surfaces. */
+input,
+select,
+textarea {
+  font: inherit;
+}
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid #a65730;
+  outline-offset: 3px;
+}
+.leader-entry {
+  margin-top: 12px;
+}
+.conflict-note {
+  color: #645129;
+  background: #f7f0df;
+  border-top: 1px solid #e7dcbd;
+  padding: 15px 20px;
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+.conflict-label {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  font-weight: 650;
+}
+.conflict-note ul {
+  padding-left: 17px;
+  margin: 9px 0 0;
+}
+.conflict-note li + li {
+  margin-top: 10px;
+}
+.conflict-note small {
+  font-size: 0.7rem;
+  line-height: 1.65;
+  display: block;
+  margin-top: 3px;
+}
+.conflict-note .conflict-help {
+  font-size: 0.69rem;
+  margin-top: 10px;
+}
+.schedule-notes {
+  margin: 0 0 38px;
+}
+.schedule-note-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.schedule-card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  overflow: hidden;
+  padding-top: 20px;
+}
+.schedule-card > .status,
+.schedule-card > h3,
+.schedule-card > p {
+  margin-inline: 20px;
+}
+.schedule-card > h3 {
+  font-size: 0.94rem;
+  margin-top: 13px;
+}
+.schedule-card > h3 a:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.schedule-card > p {
+  font-size: 0.77rem;
+  color: var(--muted);
+  margin-top: 6px;
+  margin-bottom: 15px;
+}
+.availability-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.2fr);
+  align-items: start;
+  gap: 38px;
+}
+.form-panel {
+  padding: 28px;
+  background: #eeeee3;
+  border: 1px solid #dedfd0;
+  border-radius: 8px;
+  min-width: 0;
+}
+.form-panel h2 {
+  font-size: 2rem;
+}
+.form-panel fieldset {
+  border: 0;
+  padding: 0;
+  margin: 18px 0 0;
+  min-width: 0;
+}
+.form-panel label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-block: 18px 8px;
+}
+.form-panel label:first-child {
+  margin-top: 0;
+}
+.form-panel input,
+.form-panel textarea,
+.form-panel select {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  border: 1px solid #859680;
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 5px;
+  padding: 10px 12px;
+  font-size: 0.82rem;
+}
+.form-panel textarea {
+  resize: vertical;
+}
+.form-panel input::placeholder {
+  color: var(--muted);
+}
+.form-help {
+  font-size: 0.76rem;
+  color: var(--muted);
+  margin-top: 13px;
+  line-height: 1.75;
+}
+.form-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 19px;
+}
+.form-actions .form-help {
+  width: 100%;
+  margin: 0;
+}
+.form-actions button {
+  min-height: 44px;
+}
+.availability-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.availability-card {
+  padding: 23px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--paper);
+  overflow-wrap: anywhere;
+}
+.availability-card h3 {
+  font-size: 0.87rem;
+  margin-top: 15px;
+}
+.availability-card > p {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 5px;
+}
+.availability-card .private-note {
+  margin-top: 16px;
+  border-left: 2px solid #b2bda7;
+  padding-left: 12px;
+  white-space: pre-wrap;
+}
+.leader-summary {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-block: 25px 37px;
+}
+.leader-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 30px;
+  align-items: start;
+}
+.leader-grid .section-heading {
+  margin-bottom: 15px;
+}
+.leader-grid .assignment-person h3 {
+  font-size: 0.85rem;
+}
+.leader-grid .assignment:first-of-type {
+  margin-top: 22px;
+}
+.no-conflict {
+  font-size: 0.73rem;
+  color: var(--muted);
+  padding: 0 20px 17px;
+}
+.assignment-preview {
+  margin-block: 20px;
+}
+.assignment-preview h3 {
+  font-size: 0.84rem;
+  margin-bottom: 10px;
+}
+.assignment-preview > p {
+  font-size: 0.78rem;
+}
+.assignment-preview .conflict-note {
+  border: 1px solid #e7dcbd;
+  border-radius: 6px;
+  padding: 14px;
+}
+.assignment-preview + .button,
+.form-panel fieldset > .button {
+  margin-top: 18px;
+}
+@media (max-width: 900px) {
+  .availability-grid {
+    gap: 23px;
+  }
+  .leader-grid {
+    grid-template-columns: 1fr;
+  }
+  .leader-grid .form-panel {
+    max-width: 640px;
+  }
+}
+@media (max-width: 760px) {
+  .schedule-note-grid,
+  .availability-grid {
+    grid-template-columns: 1fr;
+  }
+  .schedule-notes .section-heading {
+    flex-wrap: wrap;
+  }
+  .form-panel {
+    padding: 23px;
+  }
+  .app-header nav {
+    gap: 22px;
+  }
+  .conflict-note {
+    padding: 14px 15px;
+  }
+  .leader-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .leader-summary > div:nth-child(3) {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+  .leader-summary > div:nth-child(4) {
+    border-top: 1px solid var(--line);
+  }
+}

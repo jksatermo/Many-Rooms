@@ -229,5 +229,8 @@ public sealed class AssignmentResponseTests
             Responses.Add(response);
             return Task.CompletedTask;
         }
+
+        public Task<IReadOnlyList<ScheduleConflictDto>> GetConflictsAsync(VolunteerAssignment item, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<ScheduleConflictDto>>([]);
     }
 }

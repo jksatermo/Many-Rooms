@@ -14,6 +14,7 @@ public sealed class ManyRoomsDbContext(DbContextOptions<ManyRoomsDbContext> opti
     public DbSet<Event> Events => Set<Event>();
     public DbSet<VolunteerAssignment> Assignments => Set<VolunteerAssignment>();
     public DbSet<AssignmentResponse> Responses => Set<AssignmentResponse>();
+    public DbSet<VolunteerUnavailability> Unavailability => Set<VolunteerUnavailability>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -85,6 +86,19 @@ public sealed class ManyRoomsDbContext(DbContextOptions<ManyRoomsDbContext> opti
         {
             t.HasCheckConstraint("CK_Responses_Decision", "\"Decision\" IN ('Accepted', 'Declined')");
             t.HasCheckConstraint("CK_Responses_Version", "\"AssignmentVersion\" >= 2");
+        });
+
+        ConfigureScoped(model.Entity<VolunteerUnavailability>());
+        model.Entity<VolunteerUnavailability>().Property(x => x.Note).HasMaxLength(500);
+        model.Entity<VolunteerUnavailability>().Property(x => x.Version).IsConcurrencyToken();
+        model.Entity<VolunteerUnavailability>().HasIndex(x => new { x.OrganizationId, x.MembershipId, x.StartsAt });
+        model.Entity<VolunteerUnavailability>().HasOne<OrganizationMembership>().WithMany()
+            .HasForeignKey(x => new { x.OrganizationId, x.MembershipId })
+            .HasPrincipalKey(x => new { x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        model.Entity<VolunteerUnavailability>().ToTable(t =>
+        {
+            t.HasCheckConstraint("CK_Unavailability_Dates", "\"EndsAt\" > \"StartsAt\"");
+            t.HasCheckConstraint("CK_Unavailability_Version", "\"Version\" >= 1");
         });
     }
 

@@ -28,9 +28,9 @@ export default function WelcomeScreen() {
             welcome team.
           </Text>
           <Text style={styles.small}>
-            This shared demo is not a real sign-in. The mobile app currently
-            shows upcoming gatherings and your assignments. Respond to
-            assignments in the web demo.
+            This shared demo is not a real sign-in. Explore gatherings, reply to
+            assignments, and make room in your schedule. Changes are shared with
+            the web demo.
           </Text>
           <Button
             label="Explore the demo"

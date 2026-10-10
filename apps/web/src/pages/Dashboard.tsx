@@ -6,6 +6,7 @@ import { useResource } from '../useResource';
 import type { DemoContext } from '../types';
 import { ErrorState, EventCard, Loading, Status } from '../components/Ui';
 import { date } from '../format';
+import { Conflicts } from '../components/Conflicts';
 
 export function Dashboard() {
   const context = useOutletContext<DemoContext>();
@@ -21,6 +22,9 @@ export function Dashboard() {
   const data = result.data!;
   const pending = data.assignments.filter(
     (assignment) => assignment.isCurrentUser && assignment.status === 'Pending',
+  );
+  const conflicted = data.assignments.filter(
+    (assignment) => assignment.isCurrentUser && assignment.conflicts.length > 0,
   );
   return (
     <>
@@ -70,6 +74,49 @@ export function Dashboard() {
           </small>
         </div>
       </section>
+      {context.role === 'Leader' && (
+        <p className="notice">
+          You’re exploring as a demo leader.{' '}
+          <Link className="text-link" to="/app/events">
+            Open the event schedule to review your teams →
+          </Link>
+        </p>
+      )}
+      {conflicted.length > 0 && (
+        <section
+          className="schedule-notes"
+          aria-labelledby="schedule-notes-heading"
+        >
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">A little room to plan</p>
+              <h2 id="schedule-notes-heading">A few things overlap.</h2>
+            </div>
+            <Link className="text-link" to="/app/availability">
+              My availability
+            </Link>
+          </div>
+          <div className="schedule-note-grid">
+            {conflicted.map((assignment) => (
+              <article className="schedule-card" key={assignment.id}>
+                <Status value={assignment.status} />
+                <h3>
+                  <Link to={`/app/events/${assignment.eventId}`}>
+                    {assignment.eventTitle} →
+                  </Link>
+                </h3>
+                <p>
+                  {assignment.roleName} · {assignment.teamName}
+                </p>
+                <Conflicts
+                  conflicts={assignment.conflicts}
+                  timeZone={context.timeZone}
+                />
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
       <div className="dashboard-columns">
         <section>
           <div className="section-heading">
@@ -91,6 +138,7 @@ export function Dashboard() {
                   key={event.id}
                   event={event}
                   timeZone={context.timeZone}
+                  leader={context.role === 'Leader'}
                 />
               ))
             ) : (

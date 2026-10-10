@@ -37,6 +37,6 @@ public sealed class AssignmentResponseService(IAssignmentStore store, TimeProvid
             CreatedAt = now,
             UpdatedAt = now
         }, cancellationToken);
-        return assignment.ToDto(userId);
+        return assignment.ToDto(userId, await store.GetConflictsAsync(assignment, cancellationToken));
     }
 }

@@ -14,8 +14,10 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problems, ILogger
             BadHttpRequestException request => (request.StatusCode, "Invalid request", "Check the request body and Content-Type header."),
             AssignmentAccessException => (403, "Access denied", "You cannot respond to this assignment."),
             AssignmentNotFoundException => (404, "Assignment not found", "This assignment could not be found in this organization."),
-            AssignmentConflictException => (409, "Response conflict", exception.Message),
-            ArgumentException => (400, "Invalid response", exception.Message),
+            SchedulingAccessException => (403, "Access denied", "Your organization membership does not allow this action."),
+            SchedulingNotFoundException => (404, "Schedule item not found", "The requested item could not be found."),
+            AssignmentConflictException => (409, "Schedule changed", exception.Message),
+            ArgumentException => (400, "Invalid request", exception.Message),
             _ => (500, "Something went wrong", "The request could not be completed. Please try again.")
         };
         if (status == 500) logger.LogError(exception, "Unhandled API failure for {Path}", context.Request.Path);

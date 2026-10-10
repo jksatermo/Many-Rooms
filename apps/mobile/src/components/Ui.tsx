@@ -1,5 +1,11 @@
 import type { ReactNode } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 export const colors = {
   background: "#f5f3ec",
@@ -29,18 +35,75 @@ export function Card({ children }: { children: ReactNode }) {
 export function Button({
   label,
   onPress,
+  disabled = false,
+  secondary = false,
+  accessibilityLabel,
 }: {
   label: string;
   onPress: () => void;
+  disabled?: boolean;
+  secondary?: boolean;
+  accessibilityLabel?: string;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }) => [styles.button, pressed && { opacity: 0.8 }]}
+      disabled={disabled}
+      accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityState={{ disabled }}
+      style={({ pressed }) => [
+        styles.button,
+        secondary && styles.secondaryButton,
+        (pressed || disabled) && { opacity: 0.6 },
+      ]}
     >
-      <Text style={styles.buttonText}>{label}</Text>
+      <Text style={[styles.buttonText, secondary && { color: colors.ink }]}>
+        {label}
+      </Text>
     </Pressable>
+  );
+}
+
+export function Loading({
+  label = "Loading your schedule…",
+}: {
+  label?: string;
+}) {
+  return (
+    <View accessibilityLiveRegion="polite" style={styles.group}>
+      <ActivityIndicator color={colors.green} />
+      <Text style={styles.body}>{label}</Text>
+    </View>
+  );
+}
+export function ErrorCard({
+  message,
+  retry,
+}: {
+  message: string;
+  retry: () => void;
+}) {
+  return (
+    <Card>
+      <Text accessibilityRole="alert" style={styles.body}>
+        {message}
+      </Text>
+      <Button label="Try again" onPress={retry} />
+    </Card>
+  );
+}
+export function Status({
+  status,
+}: {
+  status: "Pending" | "Accepted" | "Declined";
+}) {
+  return (
+    <View style={styles.badge}>
+      <Text style={styles.badgeText}>
+        {status === "Pending" ? "Awaiting reply" : status}
+      </Text>
+    </View>
   );
 }
 
@@ -123,6 +186,29 @@ export const styles = StyleSheet.create({
     paddingVertical: 15,
     alignItems: "center",
     justifyContent: "center",
+  },
+  secondaryButton: {
+    backgroundColor: colors.pale,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  input: {
+    minHeight: 50,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colors.muted,
+    borderRadius: 12,
+    fontSize: 16,
+    color: colors.ink,
+    backgroundColor: colors.paper,
+  },
+  notice: {
+    gap: 8,
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: "#f1ead9",
+    borderLeftWidth: 3,
+    borderLeftColor: "#7c6431",
   },
   buttonText: { color: colors.paper, fontSize: 16, fontWeight: "600" },
   group: { gap: 12 },

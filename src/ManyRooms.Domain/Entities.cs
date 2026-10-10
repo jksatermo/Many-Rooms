@@ -94,4 +94,57 @@ public sealed class AssignmentResponse : OrganizationEntity
     public DateTimeOffset RespondedAt { get; set; }
 }
 
+/// <summary>An explicit unavailable interval. Instants are stored in UTC; intervals are half-open.</summary>
+public sealed class VolunteerUnavailability : OrganizationEntity
+{
+    public Guid MembershipId { get; set; }
+    public DateTimeOffset StartsAt { get; set; }
+    public DateTimeOffset EndsAt { get; set; }
+    public string? Note { get; set; }
+    public int Version { get; set; } = 1;
+
+    public static VolunteerUnavailability Create(Guid organizationId, Guid membershipId,
+        DateTimeOffset startsAt, DateTimeOffset endsAt, string? note, DateTimeOffset now)
+    {
+        Validate(startsAt, endsAt, note);
+        return new()
+        {
+            OrganizationId = organizationId,
+            MembershipId = membershipId,
+            StartsAt = startsAt.ToUniversalTime(),
+            EndsAt = endsAt.ToUniversalTime(),
+            Note = CleanNote(note),
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+    }
+
+    public void Replace(DateTimeOffset startsAt, DateTimeOffset endsAt, string? note,
+        int expectedVersion, DateTimeOffset now)
+    {
+        CheckVersion(expectedVersion);
+        Validate(startsAt, endsAt, note);
+        StartsAt = startsAt.ToUniversalTime();
+        EndsAt = endsAt.ToUniversalTime();
+        Note = CleanNote(note);
+        UpdatedAt = now;
+        Version++;
+    }
+
+    public void CheckVersion(int expectedVersion)
+    {
+        if (expectedVersion < 1) throw new ArgumentException("ExpectedVersion must be a positive integer.");
+        if (Version != expectedVersion)
+            throw new AssignmentConflictException("This unavailable time changed. Refresh before trying again.");
+    }
+
+    private static string? CleanNote(string? note) => string.IsNullOrWhiteSpace(note) ? null : note.Trim();
+
+    private static void Validate(DateTimeOffset startsAt, DateTimeOffset endsAt, string? note)
+    {
+        if (endsAt <= startsAt) throw new ArgumentException("End must be later than start.");
+        if (CleanNote(note)?.Length > 500) throw new ArgumentException("Note must contain at most 500 characters.");
+    }
+}
+
 public sealed class AssignmentConflictException(string message) : Exception(message);

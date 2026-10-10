@@ -9,8 +9,13 @@ import { ErrorState, Loading } from './Ui';
 
 export function AppShell() {
   const navigate = useNavigate();
+  const persona = demoSession.persona();
   const context = useResource(
-    useCallback((signal: AbortSignal) => api.context(signal), []),
+    useCallback(
+      (signal: AbortSignal) => api.context(signal, persona),
+      [persona],
+    ),
+    { refreshOnFocus: false },
   );
   if (!demoSession.entered()) return <Navigate to="/demo" replace />;
   return (
@@ -23,6 +28,7 @@ export function AppShell() {
               Overview
             </NavLink>
             <NavLink to="/app/events">Events</NavLink>
+            <NavLink to="/app/availability">My availability</NavLink>
           </nav>
           <button
             className="quiet-link exit-demo"
@@ -40,7 +46,9 @@ export function AppShell() {
       </header>
       <div className="demo-banner">
         <div className="container">
-          <span className="demo-badge">Development demo</span>
+          <span className="demo-badge">
+            {persona === 'leader' ? 'Demo leader view' : 'Development demo'}
+          </span>
           <span>Fictional people. Real saved responses.</span>
           <Link to="/demo">About this demo</Link>
         </div>
@@ -58,7 +66,10 @@ export function AppShell() {
         <p>
           Many Rooms <span aria-hidden="true">/</span> Room for everyone.
         </p>
-        <span>All event times use the community’s time zone.</span>
+        <span>
+          Schedules use the community’s time zone. Availability forms show your
+          device’s zone.
+        </span>
       </footer>
     </div>
   );
