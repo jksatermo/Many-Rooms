@@ -108,6 +108,44 @@ test("stale response returns a typed conflict and never automatically retries a 
   assert.equal(count, 1);
 });
 
+test("event reload preserves additive scheduling fields and refreshed ownership without changing the response contract", async () => {
+  let saved = {
+    id: "assignment",
+    teamId: "welcome",
+    teamMemberId: "alex-welcome",
+    isCancelled: false,
+    isCurrentUser: true,
+    status: "Accepted",
+    version: 2,
+  };
+  const api = createApi("http://localhost:5080", async () =>
+    Response.json({ assignments: [saved] }),
+  );
+  assert.equal(
+    (await api.event("cedar", "gathering")).assignments[0].teamMemberId,
+    "alex-welcome",
+  );
+  saved = {
+    ...saved,
+    teamMemberId: "jamie-welcome",
+    isCurrentUser: false,
+    status: "Pending",
+    version: 3,
+  };
+  const reassigned = (await api.event("cedar", "gathering")).assignments[0];
+  assert.equal(reassigned.id, "assignment");
+  assert.equal(reassigned.teamId, "welcome");
+  assert.equal(reassigned.teamMemberId, "jamie-welcome");
+  assert.equal(reassigned.isCurrentUser, false);
+  assert.equal(reassigned.status, "Pending");
+  assert.equal(reassigned.version, 3);
+  saved = { ...saved, isCancelled: true, version: 4 };
+  const cancelled = (await api.event("cedar", "gathering")).assignments[0];
+  assert.equal(cancelled.isCancelled, true);
+  assert.equal(cancelled.status, "Pending");
+  assert.equal(cancelled.version, 4);
+});
+
 test("availability mutations carry optimistic versions through update and delete", async () => {
   const requests: { url: string; init?: RequestInit }[] = [];
   const api = createApi("http://localhost:5080", async (input, init) => {

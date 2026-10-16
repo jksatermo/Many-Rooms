@@ -59,6 +59,8 @@ const leaderContext = {
 };
 const member = {
   id: 'team-member-one',
+  positionName: 'Greeter',
+  version: 1,
   teamId: 'team-one',
   teamName: 'Welcome team',
   membershipId: 'membership-one',
@@ -90,6 +92,9 @@ beforeEach(() => {
     ],
   });
   vi.mocked(api.teamMembers).mockResolvedValue([member]);
+  vi.mocked(api.staffing).mockResolvedValue([]);
+  vi.mocked(api.teams).mockResolvedValue([]);
+  vi.mocked(api.eventHistory).mockResolvedValue([]);
 });
 
 describe('server-provided conflicts', () => {

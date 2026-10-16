@@ -1,5 +1,16 @@
 import type {
   Assignment,
+  AssignmentHistory,
+  TeamSummary,
+  TeamDetail,
+  OrganizationMember,
+  StaffingRequirement,
+  StaffingInput,
+  ReplacementCandidate,
+  EventInput,
+  EventTemplateInput,
+  EventTemplate,
+  GenerationResult,
   Dashboard,
   Decision,
   DemoContext,
@@ -142,5 +153,134 @@ export const api = {
     request<Assignment>(
       `${org(id)}/leader/events/${encodeURIComponent(eventId)}/assignments`,
       { method: 'POST', body: JSON.stringify(input) },
+    ),
+
+  teams: (id: string, signal?: AbortSignal) =>
+    request<TeamSummary[]>(`${org(id)}/leader/teams`, { signal }),
+  team: (id: string, teamId: string, signal?: AbortSignal) =>
+    request<TeamDetail>(
+      `${org(id)}/leader/teams/${encodeURIComponent(teamId)}`,
+      { signal },
+    ),
+  organizationMembers: (id: string, signal?: AbortSignal) =>
+    request<OrganizationMember[]>(`${org(id)}/leader/organization-members`, {
+      signal,
+    }),
+  addTeamMember: (
+    id: string,
+    teamId: string,
+    membershipId: string,
+    positionName: string | null,
+  ) =>
+    request<TeamMember>(
+      `${org(id)}/leader/teams/${encodeURIComponent(teamId)}/members`,
+      { method: 'POST', body: JSON.stringify({ membershipId, positionName }) },
+    ),
+  updateTeamMember: (
+    id: string,
+    member: TeamMember,
+    positionName: string | null,
+  ) =>
+    request<TeamMember>(
+      `${org(id)}/leader/teams/${encodeURIComponent(member.teamId)}/members/${encodeURIComponent(member.id)}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ positionName, expectedVersion: member.version }),
+      },
+    ),
+  removeTeamMember: (id: string, member: TeamMember) =>
+    request<void>(
+      `${org(id)}/leader/teams/${encodeURIComponent(member.teamId)}/members/${encodeURIComponent(member.id)}?expectedVersion=${member.version}`,
+      { method: 'DELETE' },
+    ),
+  staffing: (id: string, eventId: string, signal?: AbortSignal) =>
+    request<StaffingRequirement[]>(
+      `${org(id)}/leader/events/${encodeURIComponent(eventId)}/staffing`,
+      { signal },
+    ),
+  createStaffing: (id: string, eventId: string, input: StaffingInput) =>
+    request<StaffingRequirement>(
+      `${org(id)}/leader/events/${encodeURIComponent(eventId)}/staffing`,
+      { method: 'POST', body: JSON.stringify(input) },
+    ),
+  updateStaffing: (
+    id: string,
+    current: StaffingRequirement,
+    input: Omit<StaffingInput, 'teamId'>,
+  ) =>
+    request<StaffingRequirement>(
+      `${org(id)}/leader/events/${encodeURIComponent(current.eventId)}/staffing/${encodeURIComponent(current.id)}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ ...input, expectedVersion: current.version }),
+      },
+    ),
+  removeStaffing: (id: string, current: StaffingRequirement) =>
+    request<void>(
+      `${org(id)}/leader/events/${encodeURIComponent(current.eventId)}/staffing/${encodeURIComponent(current.id)}?expectedVersion=${current.version}`,
+      { method: 'DELETE' },
+    ),
+  previewAssignmentEdit: (
+    id: string,
+    current: Assignment,
+    input: NewAssignment,
+  ) =>
+    request<{ conflicts: ScheduleConflict[] }>(
+      `${org(id)}/leader/assignments/${encodeURIComponent(current.id)}/preview`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ ...input, expectedVersion: current.version }),
+      },
+    ),
+  updateAssignment: (id: string, current: Assignment, input: NewAssignment) =>
+    request<Assignment>(
+      `${org(id)}/leader/assignments/${encodeURIComponent(current.id)}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ ...input, expectedVersion: current.version }),
+      },
+    ),
+  cancelAssignment: (id: string, current: Assignment) =>
+    request<Assignment>(
+      `${org(id)}/leader/assignments/${encodeURIComponent(current.id)}?expectedVersion=${current.version}`,
+      { method: 'DELETE' },
+    ),
+  eventHistory: (id: string, eventId: string, signal?: AbortSignal) =>
+    request<AssignmentHistory[]>(
+      `${org(id)}/leader/events/${encodeURIComponent(eventId)}/history`,
+      { signal },
+    ),
+  assignmentHistory: (id: string, assignmentId: string, signal?: AbortSignal) =>
+    request<AssignmentHistory[]>(
+      `${org(id)}/leader/assignments/${encodeURIComponent(assignmentId)}/history`,
+      { signal },
+    ),
+  conflicts: (id: string, signal?: AbortSignal) =>
+    request<Assignment[]>(`${org(id)}/leader/conflicts`, { signal }),
+  replacementCandidates: (
+    id: string,
+    assignmentId: string,
+    signal?: AbortSignal,
+  ) =>
+    request<ReplacementCandidate[]>(
+      `${org(id)}/leader/assignments/${encodeURIComponent(assignmentId)}/replacement-candidates`,
+      { signal },
+    ),
+  createEvent: (id: string, input: EventInput) =>
+    request<EventDetail>(`${org(id)}/leader/events`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  eventTemplates: (id: string, signal?: AbortSignal) =>
+    request<EventTemplate[]>(`${org(id)}/leader/event-templates`, { signal }),
+  createEventTemplate: (id: string, input: EventTemplateInput) =>
+    request<EventTemplate>(`${org(id)}/leader/event-templates`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  generateEvents: (id: string, templateId: string, throughDate: string) =>
+    request<GenerationResult>(
+      `${org(id)}/leader/event-templates/${encodeURIComponent(templateId)}/generate`,
+      { method: 'POST', body: JSON.stringify({ throughDate }) },
     ),
 };

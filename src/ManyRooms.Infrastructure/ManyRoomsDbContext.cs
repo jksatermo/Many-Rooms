@@ -40,6 +40,10 @@ public sealed class ManyRoomsDbContext(DbContextOptions<ManyRoomsDbContext> opti
         model.Entity<Team>().HasIndex(x => new { x.OrganizationId, x.Name }).IsUnique();
 
         ConfigureScoped(model.Entity<TeamMember>());
+        model.Entity<TeamMember>().Property(x => x.PositionName).HasMaxLength(120);
+        model.Entity<TeamMember>().Property(x => x.IsActive).HasDefaultValue(true);
+        model.Entity<TeamMember>().Property(x => x.Version).IsConcurrencyToken().HasDefaultValue(1);
+        model.Entity<TeamMember>().ToTable(t => t.HasCheckConstraint("CK_TeamMembers_Version", "\"Version\" >= 1"));
         model.Entity<TeamMember>().HasIndex(x => new { x.OrganizationId, x.TeamId, x.MembershipId }).IsUnique();
         model.Entity<TeamMember>().HasOne(x => x.Team).WithMany()
             .HasForeignKey(x => new { x.OrganizationId, x.TeamId })
@@ -59,7 +63,8 @@ public sealed class ManyRoomsDbContext(DbContextOptions<ManyRoomsDbContext> opti
         model.Entity<VolunteerAssignment>().Property(x => x.RoleName).HasMaxLength(120);
         model.Entity<VolunteerAssignment>().Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
         model.Entity<VolunteerAssignment>().Property(x => x.Version).IsConcurrencyToken();
-        model.Entity<VolunteerAssignment>().HasIndex(x => new { x.OrganizationId, x.EventId, x.TeamMemberId, x.RoleName }).IsUnique();
+        model.Entity<VolunteerAssignment>().HasIndex(x => new { x.OrganizationId, x.EventId, x.TeamMemberId, x.RoleName })
+            .IsUnique().HasFilter("\"IsCancelled\" = false");
         model.Entity<VolunteerAssignment>().HasOne(x => x.Event).WithMany()
             .HasForeignKey(x => new { x.OrganizationId, x.EventId })
             .HasPrincipalKey(x => new { x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
@@ -68,6 +73,7 @@ public sealed class ManyRoomsDbContext(DbContextOptions<ManyRoomsDbContext> opti
             .HasPrincipalKey(x => new { x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
         model.Entity<VolunteerAssignment>().ToTable(t =>
         {
+            t.HasCheckConstraint("CK_Assignments_Cancellation", "(\"IsCancelled\" AND \"CancelledAt\" IS NOT NULL) OR (NOT \"IsCancelled\" AND \"CancelledAt\" IS NULL)");
             t.HasCheckConstraint("CK_Assignments_Status", "\"Status\" IN ('Pending', 'Accepted', 'Declined')");
             t.HasCheckConstraint("CK_Assignments_Version", "\"Version\" >= 1");
             t.HasCheckConstraint("CK_Assignments_Response", "(\"Status\" = 'Pending' AND \"RespondedAt\" IS NULL) OR (\"Status\" <> 'Pending' AND \"RespondedAt\" IS NOT NULL)");
@@ -100,6 +106,37 @@ public sealed class ManyRoomsDbContext(DbContextOptions<ManyRoomsDbContext> opti
             t.HasCheckConstraint("CK_Unavailability_Dates", "\"EndsAt\" > \"StartsAt\"");
             t.HasCheckConstraint("CK_Unavailability_Version", "\"Version\" >= 1");
         });
+        ConfigureScoped(model.Entity<EventStaffingRequirement>());
+        model.Entity<EventStaffingRequirement>().Property(x => x.RoleName).HasMaxLength(120);
+        model.Entity<EventStaffingRequirement>().Property(x => x.NormalizedRoleName).HasMaxLength(120);
+        model.Entity<EventStaffingRequirement>().Property(x => x.Version).IsConcurrencyToken();
+        model.Entity<EventStaffingRequirement>().HasIndex(x => new { x.OrganizationId, x.EventId, x.TeamId, x.NormalizedRoleName }).IsUnique();
+        model.Entity<EventStaffingRequirement>().HasOne<Event>().WithMany()
+            .HasForeignKey(x => new { x.OrganizationId, x.EventId }).HasPrincipalKey(x => new { x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        model.Entity<EventStaffingRequirement>().HasOne<Team>().WithMany()
+            .HasForeignKey(x => new { x.OrganizationId, x.TeamId }).HasPrincipalKey(x => new { x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        model.Entity<EventStaffingRequirement>().ToTable(t =>
+        {
+            t.HasCheckConstraint("CK_Staffing_Count", "\"DesiredCount\" BETWEEN 1 AND 100");
+            t.HasCheckConstraint("CK_Staffing_Version", "\"Version\" >= 1");
+        });
+        ConfigureScoped(model.Entity<AssignmentHistory>());
+        model.Entity<AssignmentHistory>().Property(x => x.Action).HasMaxLength(24);
+        model.Entity<AssignmentHistory>().Property(x => x.PreviousVolunteerName).HasMaxLength(120);
+        model.Entity<AssignmentHistory>().Property(x => x.VolunteerName).HasMaxLength(120);
+        model.Entity<AssignmentHistory>().Property(x => x.PreviousRoleName).HasMaxLength(120);
+        model.Entity<AssignmentHistory>().Property(x => x.RoleName).HasMaxLength(120);
+        model.Entity<AssignmentHistory>().HasIndex(x => new { x.OrganizationId, x.AssignmentId, x.AssignmentVersion }).IsUnique();
+        model.Entity<AssignmentHistory>().HasOne<VolunteerAssignment>().WithMany()
+            .HasForeignKey(x => new { x.OrganizationId, x.AssignmentId }).HasPrincipalKey(x => new { x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        model.Entity<AssignmentHistory>().HasOne<OrganizationMembership>().WithMany()
+            .HasForeignKey(x => new { x.OrganizationId, x.ActorMembershipId }).HasPrincipalKey(x => new { x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        model.Entity<AssignmentHistory>().ToTable(t =>
+        {
+            t.HasCheckConstraint("CK_History_Version", "\"AssignmentVersion\" >= 1");
+            t.HasCheckConstraint("CK_History_Action", "\"Action\" IN ('Created', 'Reassigned', 'RoleChanged', 'Cancelled', 'Accepted', 'Declined', 'Imported')");
+        });
+        RecurrenceModel.Configure(model);
     }
 
     private static void ConfigureEntity<T>(EntityTypeBuilder<T> entity) where T : Entity

@@ -29,6 +29,12 @@ export function AppShell() {
             </NavLink>
             <NavLink to="/app/events">Events</NavLink>
             <NavLink to="/app/availability">My availability</NavLink>
+            {context.data?.role === 'Leader' && (
+              <>
+                <NavLink to="/app/leader/teams">Teams</NavLink>
+                <NavLink to="/app/leader/conflicts">Needs attention</NavLink>
+              </>
+            )}
           </nav>
           <button
             className="quiet-link exit-demo"

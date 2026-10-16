@@ -14,9 +14,12 @@ public sealed class LeaderAssignmentService(ILeaderAssignmentStore store, TimePr
     public async Task<AssignmentDto> CreateAsync(Guid organizationId, Guid eventId, Guid userId,
         CreateAssignmentRequest request, CancellationToken cancellationToken)
     {
-        var assignment = await PrepareAsync(organizationId, eventId, userId, request, cancellationToken);
-        await store.SaveAssignmentAsync(assignment, cancellationToken);
-        return assignment.ToDto(userId, await store.GetConflictsAsync(assignment, cancellationToken));
+        return await store.InOrganizationTransactionAsync(organizationId, async () =>
+        {
+            var assignment = await PrepareAsync(organizationId, eventId, userId, request, cancellationToken);
+            await store.SaveAssignmentAsync(assignment, userId, cancellationToken);
+            return assignment.ToDto(userId, await store.GetConflictsAsync(assignment, cancellationToken));
+        }, cancellationToken);
     }
 
     private async Task<VolunteerAssignment> PrepareAsync(Guid organizationId, Guid eventId, Guid userId,

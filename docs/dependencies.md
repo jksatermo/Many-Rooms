@@ -27,3 +27,7 @@ npm run check:dependencies
 ```
 
 Mobile tests, type checking, and the Android JavaScript export pass with the current lockfile. These checks establish functionality; they do not erase the dependency findings. The web production dependency audit returned zero known vulnerabilities during milestone validation.
+
+## Milestone 3 compatibility
+
+Milestone 3 changes no package versions or lockfiles. The existing SDK compatibility check and both Android/Hermes and Expo browser exports still pass. The advisory inventory above is the dated Milestone 2 review, not a claim that a new security audit is clean. Native distribution remains blocked on compatible dependency review and real device validation; no forced upgrades were applied.

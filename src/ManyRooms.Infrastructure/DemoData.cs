@@ -20,6 +20,8 @@ public static class DemoData
         if (!await db.Organizations.AnyAsync(x => x.Id == OrganizationId, cancellationToken))
             await SeedInitialAsync(db, clock, cancellationToken);
         await SeedSchedulingAsync(db, clock, cancellationToken);
+        await LeaderDemoData.SeedAsync(db, clock, cancellationToken);
+        await RecurrenceSeed.SeedAsync(db, clock, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
     }
 

@@ -7,6 +7,8 @@ import { ErrorState, Loading, Status } from '../components/Ui';
 import { date, time } from '../format';
 import type { Assignment, DemoContext, ScheduleConflict } from '../types';
 import { useResource } from '../useResource';
+import { AssignmentEditor, EventHistory } from '../components/LeaderTools';
+import { Staffing } from '../components/Staffing';
 
 export function LeaderEvent() {
   const context = useOutletContext<DemoContext>();
@@ -29,13 +31,16 @@ export function LeaderEvent() {
 function LeaderSchedule({ context }: { context: DemoContext }) {
   const { eventId = '' } = useParams();
   const [submitting, setSubmitting] = useState(false);
+  const [editing, setEditing] = useState<Assignment | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [scheduleRevision, setScheduleRevision] = useState(0);
   const event = useResource(
     useCallback(
       (signal: AbortSignal) =>
         api.leaderEvent(context.organizationId, eventId, signal),
       [context.organizationId, eventId],
     ),
-    { refreshOnFocus: !submitting },
+    { refreshOnFocus: !submitting && !editing },
   );
   const members = useResource(
     useCallback(
@@ -49,6 +54,7 @@ function LeaderSchedule({ context }: { context: DemoContext }) {
     setNotice(
       `Assignment saved for ${assignment.volunteerName}. ${assignment.conflicts.length ? 'Schedule conflicts are shown below; the assignment is awaiting a response.' : 'The assignment is awaiting a response.'}`,
     );
+    setScheduleRevision((value) => value + 1);
     event.reload();
   };
   if (event.loading) return <Loading label="Loading the leader schedule…" />;
@@ -58,19 +64,27 @@ function LeaderSchedule({ context }: { context: DemoContext }) {
   const statuses = [
     {
       label: 'Accepted',
-      count: data.assignments.filter((a) => a.status === 'Accepted').length,
+      count: data.assignments.filter(
+        (a) => !a.isCancelled && a.status === 'Accepted',
+      ).length,
     },
     {
       label: 'Awaiting response',
-      count: data.assignments.filter((a) => a.status === 'Pending').length,
+      count: data.assignments.filter(
+        (a) => !a.isCancelled && a.status === 'Pending',
+      ).length,
     },
     {
       label: 'Declined',
-      count: data.assignments.filter((a) => a.status === 'Declined').length,
+      count: data.assignments.filter(
+        (a) => !a.isCancelled && a.status === 'Declined',
+      ).length,
     },
     {
       label: 'In conflict',
-      count: data.assignments.filter((a) => a.conflicts.length > 0).length,
+      count: data.assignments.filter(
+        (a) => !a.isCancelled && a.conflicts.length > 0,
+      ).length,
     },
   ];
   return (
@@ -114,6 +128,11 @@ function LeaderSchedule({ context }: { context: DemoContext }) {
           {notice}
         </p>
       )}
+      <Staffing
+        key={`staffing-${scheduleRevision}`}
+        context={context}
+        eventId={eventId}
+      />
       <div className="leader-grid">
         <section aria-labelledby="leader-assignments-heading">
           <div className="section-heading">
@@ -141,7 +160,10 @@ function LeaderSchedule({ context }: { context: DemoContext }) {
                       {assignment.roleName} · {assignment.teamName}
                     </p>
                   </div>
-                  <Status value={assignment.status} />
+                  <Status
+                    value={assignment.status}
+                    cancelled={assignment.isCancelled}
+                  />
                 </div>
                 <Conflicts
                   conflicts={assignment.conflicts}
@@ -149,10 +171,48 @@ function LeaderSchedule({ context }: { context: DemoContext }) {
                 />
                 {!assignment.conflicts.length && (
                   <p className="no-conflict">
-                    {assignment.status === 'Declined'
-                      ? 'Declined assignments don’t reserve this volunteer’s time.'
-                      : 'No schedule conflicts found.'}
+                    {assignment.isCancelled
+                      ? 'Cancelled assignments no longer reserve time or fill staffing needs.'
+                      : assignment.status === 'Declined'
+                        ? 'Declined assignments don’t reserve this volunteer’s time.'
+                        : 'No schedule conflicts found.'}
                   </p>
+                )}
+                {!assignment.isCancelled &&
+                  new Date(data.startsAt) > new Date() && (
+                    <div className="assignment-tools">
+                      <button
+                        className="quiet-link"
+                        disabled={
+                          editing !== null && editing.id !== assignment.id
+                        }
+                        onClick={() => setEditing(assignment)}
+                      >
+                        Edit or cancel assignment
+                      </button>
+                    </div>
+                  )}
+                {editing?.id === assignment.id && (
+                  <AssignmentEditor
+                    key={`${assignment.id}-${assignment.version}`}
+                    context={context}
+                    assignment={editing}
+                    members={members.data || []}
+                    onClose={() => {
+                      setEditing(null);
+                      event.reload();
+                    }}
+                    onSaved={(updated) => {
+                      setEditing(null);
+                      setNotice(
+                        updated.isCancelled
+                          ? 'Assignment cancelled. History is preserved.'
+                          : `Assignment updated for ${updated.volunteerName}. Response reset to awaiting response.`,
+                      );
+                      setScheduleRevision((value) => value + 1);
+                      event.reload();
+                    }}
+                  />
                 )}
               </article>
             ))
@@ -192,6 +252,22 @@ function LeaderSchedule({ context }: { context: DemoContext }) {
           )}
         </section>
       </div>
+      <div className="form-actions">
+        <button
+          className="button button-outline button-small"
+          aria-expanded={historyOpen}
+          onClick={() => setHistoryOpen(!historyOpen)}
+        >
+          {historyOpen ? 'Hide assignment history' : 'View assignment history'}
+        </button>
+      </div>
+      {historyOpen && (
+        <EventHistory
+          key={`history-${scheduleRevision}`}
+          context={context}
+          eventId={eventId}
+        />
+      )}
     </>
   );
 }

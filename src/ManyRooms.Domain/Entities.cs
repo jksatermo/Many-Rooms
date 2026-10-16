@@ -41,6 +41,9 @@ public sealed class Team : OrganizationEntity
 
 public sealed class TeamMember : OrganizationEntity
 {
+    public string? PositionName { get; set; }
+    public bool IsActive { get; set; } = true;
+    public int Version { get; set; } = 1;
     public Guid TeamId { get; set; }
     public Guid MembershipId { get; set; }
     public Team Team { get; set; } = null!;
@@ -49,6 +52,8 @@ public sealed class TeamMember : OrganizationEntity
 
 public sealed class Event : OrganizationEntity
 {
+    public Guid? TemplateId { get; set; }
+    public DateOnly? OccurrenceDate { get; set; }
     public required string Title { get; set; }
     public required string Description { get; set; }
     public required string Location { get; set; }
@@ -60,6 +65,8 @@ public enum AssignmentStatus { Pending, Accepted, Declined }
 
 public sealed class VolunteerAssignment : OrganizationEntity
 {
+    public bool IsCancelled { get; set; }
+    public DateTimeOffset? CancelledAt { get; set; }
     public Guid EventId { get; set; }
     public Guid TeamMemberId { get; set; }
     public required string RoleName { get; set; }
@@ -71,6 +78,7 @@ public sealed class VolunteerAssignment : OrganizationEntity
 
     public void Respond(AssignmentStatus decision, int expectedVersion, DateTimeOffset now)
     {
+        if (IsCancelled) throw new AssignmentConflictException("This assignment was cancelled. Contact your team leader.");
         if (decision is not (AssignmentStatus.Accepted or AssignmentStatus.Declined))
             throw new ArgumentException("Choose Accepted or Declined.", nameof(decision));
         if (Version != expectedVersion)

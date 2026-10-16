@@ -99,7 +99,10 @@ export function Dashboard() {
           <div className="schedule-note-grid">
             {conflicted.map((assignment) => (
               <article className="schedule-card" key={assignment.id}>
-                <Status value={assignment.status} />
+                <Status
+                  value={assignment.status}
+                  cancelled={assignment.isCancelled}
+                />
                 <h3>
                   <Link to={`/app/events/${assignment.eventId}`}>
                     {assignment.eventTitle} →
@@ -169,7 +172,10 @@ export function Dashboard() {
                 key={assignment.id}
                 to={`/app/events/${assignment.eventId}`}
               >
-                <Status value={assignment.status} />
+                <Status
+                  value={assignment.status}
+                  cancelled={assignment.isCancelled}
+                />
                 <h3>{assignment.eventTitle}</h3>
                 <p>
                   {assignment.roleName} · {assignment.teamName}

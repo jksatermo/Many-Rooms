@@ -46,11 +46,14 @@ const pending: Assignment = {
   eventTitle: "Sunday gathering",
   eventStartsAt: "2099-04-18T14:00:00Z",
   eventEndsAt: "2099-04-18T16:00:00Z",
+  teamId: "welcome",
+  teamMemberId: "alex-welcome",
   teamName: "Welcome",
   roleName: "Door host",
   volunteerId: "alex",
   volunteerName: "Alex Morgan",
   status: "Pending",
+  isCancelled: false,
   respondedAt: null,
   version: 3,
   isCurrentUser: true,
@@ -258,6 +261,137 @@ describe("native volunteer event workflow", () => {
     listener.mockRestore();
   });
 
+  it("shows a leader cancellation after foreground refresh without offering a reply or showing old conflicts", async () => {
+    const listener = jest.spyOn(AppState, "addEventListener");
+    await render(<EventScreen eventId="gathering" />);
+    await screen.findByRole("button", { name: "Accept Door host" });
+    event.assignments = [
+      { ...pending, status: "Accepted", isCancelled: true, version: 4 },
+    ];
+    await act(async () => listener.mock.calls.at(-1)![1]("active"));
+    expect(await screen.findByText("Cancelled")).toBeOnTheScreen();
+    expect(
+      screen.getByText("This assignment was cancelled. No reply is needed."),
+    ).toBeOnTheScreen();
+    expect(screen.queryByText("Accepted")).toBeNull();
+    expect(screen.queryByText("Schedule conflict")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Accept Door host" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Decline Door host" }),
+    ).toBeNull();
+    expect(mock.respond).not.toHaveBeenCalled();
+  });
+
+  it("removes the former volunteer's controls when the same assignment is reassigned", async () => {
+    const listener = jest.spyOn(AppState, "addEventListener");
+    await render(<EventScreen eventId="gathering" />);
+    await screen.findByRole("button", { name: "Accept Door host" });
+    event.assignments = [
+      {
+        ...pending,
+        teamMemberId: "jamie-welcome",
+        volunteerId: "jamie",
+        volunteerName: "Jamie Chen",
+        isCurrentUser: false,
+        conflicts: [],
+        version: 4,
+      },
+    ];
+    await act(async () => listener.mock.calls.at(-1)![1]("active"));
+    expect(await screen.findByText("Jamie Chen")).toBeOnTheScreen();
+    expect(screen.queryByText("Alex Morgan · You")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Accept Door host" }),
+    ).toBeNull();
+    expect(screen.queryByText("Schedule conflict")).toBeNull();
+    expect(mock.respond).not.toHaveBeenCalled();
+  });
+
+  it("responds with the refreshed version after a leader changes the volunteer's role", async () => {
+    const listener = jest.spyOn(AppState, "addEventListener");
+    await render(<EventScreen eventId="gathering" />);
+    await screen.findByRole("button", { name: "Accept Door host" });
+    event.assignments = [{ ...pending, roleName: "Coffee host", version: 5 }];
+    await act(async () => listener.mock.calls.at(-1)![1]("active"));
+    mock.respond.mockImplementation(async () => {
+      event.assignments = [
+        { ...event.assignments[0], status: "Accepted", version: 6 },
+      ];
+      return event.assignments[0];
+    });
+    await fireEvent.press(
+      await screen.findByRole("button", { name: "Accept Coffee host" }),
+    );
+    expect(mock.respond).toHaveBeenCalledWith(
+      "cedar",
+      "assignment",
+      "Accepted",
+      5,
+    );
+    expect(await screen.findByText("Accepted")).toBeOnTheScreen();
+  });
+
+  it("requires fresh ownership data after a response is rejected for an assignment now owned by someone else", async () => {
+    mock.respond.mockRejectedValue(
+      new ApiError(
+        404,
+        "This item is no longer available. Refresh your schedule.",
+      ),
+    );
+    await render(<EventScreen eventId="gathering" />);
+    await fireEvent.press(
+      await screen.findByRole("button", { name: "Accept Door host" }),
+    );
+    expect(
+      screen.getByRole("button", { name: "Decline Door host" }),
+    ).toBeDisabled();
+    event.assignments = [
+      {
+        ...pending,
+        volunteerName: "Jamie Chen",
+        isCurrentUser: false,
+        conflicts: [],
+        version: 4,
+      },
+    ];
+    await fireEvent.press(
+      screen.getByRole("button", { name: "Refresh latest details" }),
+    );
+    expect(await screen.findByText("Jamie Chen")).toBeOnTheScreen();
+    expect(
+      screen.queryByRole("button", { name: "Accept Door host" }),
+    ).toBeNull();
+    expect(mock.respond).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps cached reply controls disabled when a foreground refresh fails until latest details can be loaded", async () => {
+    const listener = jest.spyOn(AppState, "addEventListener");
+    await render(<EventScreen eventId="gathering" />);
+    await screen.findByRole("button", { name: "Accept Door host" });
+    mock.event.mockRejectedValueOnce(
+      new Error("Connection lost while checking the schedule."),
+    );
+    await act(async () => listener.mock.calls.at(-1)![1]("active"));
+    expect(
+      await screen.findByText("Connection lost while checking the schedule."),
+    ).toBeOnTheScreen();
+    expect(
+      screen.getByRole("button", { name: "Accept Door host" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Decline Door host" }),
+    ).toBeDisabled();
+    event.assignments = [{ ...pending, isCancelled: true, version: 4 }];
+    await fireEvent.press(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByText("Cancelled")).toBeOnTheScreen();
+    expect(
+      screen.queryByRole("button", { name: "Accept Door host" }),
+    ).toBeNull();
+    expect(mock.respond).not.toHaveBeenCalled();
+  });
+
   it("opens a native event route from the live dashboard", async () => {
     mock.dashboard.mockResolvedValue({
       organization: {
@@ -283,6 +417,36 @@ describe("native volunteer event workflow", () => {
       params: { id: "gathering" },
     });
     expect(screen.getByText("Schedule conflict")).toBeOnTheScreen();
+  });
+
+  it("keeps cancelled assignments visible on the dashboard without implying an accepted commitment or conflict", async () => {
+    mock.dashboard.mockResolvedValue({
+      organization: {
+        id: "cedar",
+        name: "Cedar Grove",
+        timeZone: context.timeZone,
+      },
+      currentUser: { id: "alex", displayName: "Alex Morgan" },
+      summary: {
+        upcomingEvents: 1,
+        pendingResponses: 0,
+        acceptedAssignments: 0,
+      },
+      events: [event],
+      assignments: [{ ...pending, status: "Accepted", isCancelled: true }],
+    });
+    await render(<DashboardScreen />);
+    expect(await screen.findByText("Cancelled")).toBeOnTheScreen();
+    expect(screen.queryByText("Schedule conflict")).toBeNull();
+    await fireEvent.press(
+      screen.getByRole("button", {
+        name: "View Door host assignment for Sunday gathering",
+      }),
+    );
+    expect(router.push).toHaveBeenCalledWith({
+      pathname: "/events/[id]",
+      params: { id: "gathering" },
+    });
   });
 });
 

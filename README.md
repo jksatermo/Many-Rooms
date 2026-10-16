@@ -8,23 +8,25 @@ I’m building it to make volunteer coordination easier for the people organizin
 
 ## Current milestone
 
-Milestone 2 extends the working volunteer response workflow across React web and Expo mobile. Volunteers can open events, accept or decline their own assignments, and manage explicit unavailable time ranges. PostgreSQL stores the responses and availability; reopening a screen retrieves the current server state.
+Milestone 3 adds leader scheduling and conflict resolution to the existing React web and Expo volunteer workflows. Leaders can manage membership and positions in existing teams, set event staffing needs, preview and create assignments, replace volunteers, cancel assignments, and review assignment history. A conflict center brings overlapping commitments, unavailable time, and declined invitations together.
 
-The API identifies overlapping assignments and assignments that overlap unavailable time. Both clients show concise, advisory conflict information. A small web leader demo provides an event assignment overview and lets a leader preview and create an assignment for an existing team member. Conflicts never silently cancel an assignment or prevent a volunteer from responding.
+Weekly templates generate bounded, independent event instances in the organization's timezone. They do not automatically assign volunteers. Web and mobile volunteers continue to accept/decline and manage unavailable ranges through the same PostgreSQL-backed API; cancelled assignments are visible and reassignment requires a fresh response from the new volunteer.
 
-Production authentication, recurring availability/events, organization administration, reminders, and SMS delivery remain roadmap work. The mobile workflow has automated native-component tests and bundle validation; it has not yet been validated on a native device or simulator.
+Production authentication, recurring availability, notifications, and SMS delivery remain roadmap work. The mobile workflow has automated native-component tests and bundle validation; it has not been validated on a native device or simulator.
 
 **The demo is development-only, fictional, and shared. It is not production authentication.**
 
-## What Milestone 2 demonstrates
+## What Milestone 3 demonstrates
 
-- One ASP.NET Core response workflow used by web and native mobile clients.
-- Reusable application/domain rules for time-range overlap, independent of UI rendering.
-- An additive EF Core migration with organization-scoped relational constraints.
-- Ownership and leader-role checks against organization memberships.
-- Optimistic concurrency for responses and availability edits.
-- Accessible status feedback, responsive web layouts, and native navigation/touch controls.
-- Unit, PostgreSQL integration, and browser tests, including migration and conflict scenarios.
+- Shared assignment state and API contracts across web and native mobile clients.
+- Organization-scoped relational relationships, forward migrations, and preservation of existing responses.
+- Server-calculated staffing totals and deterministic replacement suggestions using time-range conflicts.
+- Optimistic concurrency and transactional assignment history for leader and volunteer changes.
+- Bounded, repeatable weekly generation with explicit timezone and daylight-saving rules.
+- Responsive, keyboard-accessible leader workflows and honest native-validation limits.
+- Application tests, real PostgreSQL integration tests, and browser workflow checks.
+
+Milestone 2 established volunteer availability and conflict detection; Milestone 3 uses those rules to support concrete scheduling decisions. See [scheduling rules](docs/scheduling.md) and [verification evidence](docs/verification.md) for precise behavior and limitations.
 
 ## Screenshots
 
@@ -110,7 +112,7 @@ npm run dev
 
 Open **http://localhost:5173**. Enter as fictional volunteer **Alex Morgan**, open an upcoming event, choose **Accept** or **Decline**, then refresh. Open availability to add, edit, or remove an unavailable range. Assignments with overlapping commitments or unavailable time display a schedule-conflict explanation from the server.
 
-The separate, explicitly labeled **leader demo** uses fictional leader **Jamie Chen**. Open an event to inspect response statuses and conflicts. Choose an existing team member and role to preview an assignment’s conflicts, then save if appropriate. The preview is advisory; saving checks the current server state again.
+The separate, explicitly labeled **leader demo** uses fictional leader **Jamie Chen**. Open Teams to manage members and positions. Open an event to set staffing needs, inspect response statuses, preview assignments, and review history. Use Conflicts to find a replacement for a declined or conflicted assignment. Event planning supports one-time events and bounded weekly generation. Previews and suggestions are advisory; saving checks the current server state again.
 
 The API listens at **http://localhost:5080**. Inspect it at **http://localhost:5080/swagger**; its OpenAPI document is `/openapi/v1.json`. Readiness is `/health/ready` and liveness is `/health`.
 
@@ -127,7 +129,7 @@ npm run db:seed     # Add fictional demo data; preserve existing responses
 npm run db:down     # Stop PostgreSQL; retain the volume
 ```
 
-**Upgrading a Milestone 1 database:** run `npm run db:migrate`, then `npm run db:seed`. The new forward migration adds availability without rewriting the initial migration. The additive seed keeps existing assignments, responses, and event dates, and adds fictional conflict examples once. It does not recreate an unavailable range after a volunteer removes it.
+**Upgrading a Milestone 1 or 2 database:** retain the Docker volume, run `npm run db:migrate`, then `npm run db:seed`. Forward migrations add availability and leader scheduling without rewriting earlier migrations. Existing assignments, responses, and event dates are preserved. New fictional scheduling examples are additive; rerunning the seed preserves user edits. See [migration details](docs/development.md#migrations).
 
 To recreate **only this local demo database**, the following intentionally deletes its Docker volume and all local responses:
 
@@ -138,7 +140,7 @@ npm run db:migrate
 npm run db:seed
 ```
 
-The seed uses fixed entity IDs and future event dates at the time it is first created. Rerunning it does not reset decisions or move existing events. Recreate the local demo database when seeded events have passed and you want a fresh walkthrough.
+The seed uses fixed entity IDs and future event dates when each milestone dataset is first added. Rerunning it does not reset decisions or move existing events. When seeded events have passed, leaders can create new events; recreate only a disposable demo database if you want a fresh seeded walkthrough.
 
 For Visual Studio, open `ManyRooms.sln`. Keep the connection string in user secrets or environment variables; do not put it in `appsettings.json`. The root helpers provide the same environment for CLI use. See [development details](docs/development.md) for migration creation and production build commands.
 
@@ -220,9 +222,8 @@ The current stable Expo SDK has upstream dependency advisories reported by `npm 
 
 1. Production authentication, invitations, and membership administration.
 2. Native device validation, compatible dependency fixes, and distribution preparation.
-3. Leader reassignment and conflict-resolution workflows with volunteer communication.
-4. Recurring events and availability with explicit timezone/DST behavior.
-5. Reminder/notification delivery and authenticated SMS Accept/Decline replies.
-6. Calendar integrations and focused team communication.
+3. Volunteer change notifications, reminder delivery, and clear communication after reassignment.
+4. Recurring availability, event/template editing, and more flexible scheduling constraints.
+5. Authenticated SMS Accept/Decline replies, calendar integrations, and focused team communication.
 
 Keep future work focused on demonstrated needs and preserve a simple, welcoming experience.

@@ -5,8 +5,8 @@ using Npgsql;
 
 namespace ManyRooms.Infrastructure;
 
-public sealed class CommunityStore(ManyRoomsDbContext db, TimeProvider clock) : ICommunityQueries, IAssignmentStore,
-    IAvailabilityStore, ILeaderAssignmentStore
+public sealed partial class CommunityStore(ManyRoomsDbContext db, TimeProvider clock) : ICommunityQueries, IAssignmentStore,
+    IAvailabilityStore, ILeaderAssignmentStore, ILeaderSchedulingStore
 {
     public Task<bool> IsMemberAsync(Guid organizationId, Guid userId, CancellationToken cancellationToken) =>
         db.Memberships.AnyAsync(x => x.OrganizationId == organizationId && x.UserId == userId, cancellationToken);
@@ -29,8 +29,8 @@ public sealed class CommunityStore(ManyRoomsDbContext db, TimeProvider clock) : 
         var now = clock.GetUtcNow();
         return await db.Events.AsNoTracking().Where(x => x.OrganizationId == organizationId && x.StartsAt > now)
             .OrderBy(x => x.StartsAt).Select(x => new EventSummaryDto(x.Id, x.Title, x.StartsAt, x.EndsAt, x.Location,
-                db.Assignments.Count(a => a.OrganizationId == organizationId && a.EventId == x.Id),
-                db.Assignments.Count(a => a.OrganizationId == organizationId && a.EventId == x.Id && a.Status == AssignmentStatus.Pending)))
+                db.Assignments.Count(a => a.OrganizationId == organizationId && a.EventId == x.Id && !a.IsCancelled),
+                db.Assignments.Count(a => a.OrganizationId == organizationId && a.EventId == x.Id && !a.IsCancelled && a.Status == AssignmentStatus.Pending)))
             .ToListAsync(cancellationToken);
     }
 
@@ -45,7 +45,7 @@ public sealed class CommunityStore(ManyRoomsDbContext db, TimeProvider clock) : 
             .OrderBy(x => x.Event.StartsAt).ToListAsync(cancellationToken);
         var mapped = await MapAssignmentsAsync(organizationId, assignments, userId, false, cancellationToken);
         return new(new(organization.Id, organization.Name, organization.TimeZone), new(user.Id, user.DisplayName),
-            new(events.Count, assignments.Count(x => x.Status == AssignmentStatus.Pending), assignments.Count(x => x.Status == AssignmentStatus.Accepted)),
+            new(events.Count, assignments.Count(x => !x.IsCancelled && x.Status == AssignmentStatus.Pending), assignments.Count(x => !x.IsCancelled && x.Status == AssignmentStatus.Accepted)),
             events, mapped);
     }
 
@@ -72,9 +72,9 @@ public sealed class CommunityStore(ManyRoomsDbContext db, TimeProvider clock) : 
     public async Task<IReadOnlyList<TeamMemberDto>> GetTeamMembersAsync(Guid organizationId, Guid userId, CancellationToken cancellationToken)
     {
         if (!await IsLeaderAsync(organizationId, userId, cancellationToken)) throw new SchedulingAccessException();
-        return await db.TeamMembers.AsNoTracking().Where(x => x.OrganizationId == organizationId)
+        return await db.TeamMembers.AsNoTracking().Where(x => x.OrganizationId == organizationId && x.IsActive)
             .OrderBy(x => x.Team.Name).ThenBy(x => x.Membership.User.DisplayName)
-            .Select(x => new TeamMemberDto(x.Id, x.TeamId, x.Team.Name, x.MembershipId, x.Membership.UserId, x.Membership.User.DisplayName))
+            .Select(x => new TeamMemberDto(x.Id, x.TeamId, x.Team.Name, x.MembershipId, x.Membership.UserId, x.Membership.User.DisplayName, x.PositionName, x.Version))
             .ToListAsync(cancellationToken);
     }
 
@@ -84,12 +84,17 @@ public sealed class CommunityStore(ManyRoomsDbContext db, TimeProvider clock) : 
     public async Task SaveResponseAsync(VolunteerAssignment assignment, AssignmentResponse response, CancellationToken cancellationToken)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await LockOrganizationAsync(assignment.OrganizationId, cancellationToken);
+        if (!await db.TeamMembers.AsNoTracking().AnyAsync(x => x.OrganizationId == assignment.OrganizationId &&
+                x.Id == assignment.TeamMemberId && x.IsActive, cancellationToken))
+            throw new AssignmentConflictException("This team membership is no longer active. Contact your team leader.");
         try
         {
             // Check the assignment version first. Otherwise EF may insert duplicate history before
             // discovering a competing update. Both saves still commit or roll back together.
             await db.SaveChangesAsync(cancellationToken);
             db.Responses.Add(response);
+            db.Set<AssignmentHistory>().Add(AssignmentHistory.Capture(assignment, response.MembershipId, response.Decision.ToString(), response.RespondedAt));
             await db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
@@ -118,13 +123,13 @@ public sealed class CommunityStore(ManyRoomsDbContext db, TimeProvider clock) : 
     private async Task<(IReadOnlyList<VolunteerAssignment> Assignments, IReadOnlyList<VolunteerUnavailability> Unavailable)>
         GetConflictCandidatesAsync(Guid organizationId, IReadOnlyList<VolunteerAssignment> targets, CancellationToken cancellationToken)
     {
-        var active = targets.Where(x => x.Status != AssignmentStatus.Declined).ToArray();
+        var active = targets.Where(x => !x.IsCancelled && x.Status != AssignmentStatus.Declined).ToArray();
         if (active.Length == 0) return ([], []);
         var memberships = active.Select(x => x.TeamMember.MembershipId).Distinct().ToArray();
         var start = active.Min(x => x.Event.StartsAt);
         var end = active.Max(x => x.Event.EndsAt);
         var candidates = await AssignmentQuery(organizationId).AsNoTracking()
-            .Where(x => x.Status != AssignmentStatus.Declined && memberships.Contains(x.TeamMember.MembershipId) &&
+            .Where(x => !x.IsCancelled && x.Status != AssignmentStatus.Declined && memberships.Contains(x.TeamMember.MembershipId) &&
                 x.Event.StartsAt < end && start < x.Event.EndsAt).ToListAsync(cancellationToken);
         var unavailable = await db.Unavailability.AsNoTracking()
             .Where(x => x.OrganizationId == organizationId && memberships.Contains(x.MembershipId) &&
@@ -168,15 +173,17 @@ public sealed class CommunityStore(ManyRoomsDbContext db, TimeProvider clock) : 
 
     public Task<TeamMember?> FindTeamMemberAsync(Guid organizationId, Guid teamMemberId, CancellationToken cancellationToken) =>
         db.TeamMembers.Include(x => x.Team).Include(x => x.Membership).ThenInclude(x => x.User)
-            .SingleOrDefaultAsync(x => x.OrganizationId == organizationId && x.Id == teamMemberId, cancellationToken);
+            .SingleOrDefaultAsync(x => x.OrganizationId == organizationId && x.Id == teamMemberId && x.IsActive, cancellationToken);
 
     public Task<bool> AssignmentExistsAsync(Guid organizationId, Guid eventId, Guid teamMemberId, string roleName, CancellationToken cancellationToken) =>
         db.Assignments.AnyAsync(x => x.OrganizationId == organizationId && x.EventId == eventId &&
-            x.TeamMemberId == teamMemberId && x.RoleName == roleName, cancellationToken);
+            !x.IsCancelled && x.TeamMemberId == teamMemberId && x.RoleName.Trim().ToUpper() == roleName.Trim().ToUpper(), cancellationToken);
 
-    public async Task SaveAssignmentAsync(VolunteerAssignment assignment, CancellationToken cancellationToken)
+    public async Task SaveAssignmentAsync(VolunteerAssignment assignment, Guid actorUserId, CancellationToken cancellationToken)
     {
         db.Assignments.Add(assignment);
+        var actor = await FindMembershipAsync(assignment.OrganizationId, actorUserId, cancellationToken) ?? throw new SchedulingAccessException();
+        db.Set<AssignmentHistory>().Add(AssignmentHistory.Capture(assignment, actor.Id, "Created", clock.GetUtcNow()));
         try { await db.SaveChangesAsync(cancellationToken); }
         catch (DbUpdateException exception) when (exception.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
         {

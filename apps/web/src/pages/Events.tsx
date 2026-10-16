@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { Link, useOutletContext } from 'react-router-dom';
 import { api } from '../api';
 import { useResource } from '../useResource';
 import type { DemoContext } from '../types';
@@ -27,6 +27,11 @@ export function Events() {
               : 'A place to gather, connect, and lend a hand.'}
           </p>
         </div>
+        {context.role === 'Leader' && (
+          <Link className="button button-small" to="/app/leader/planning">
+            Plan an event
+          </Link>
+        )}
       </div>
       <section className="events-page">
         <div className="section-heading">

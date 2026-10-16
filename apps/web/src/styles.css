@@ -2063,3 +2063,172 @@ textarea:focus-visible {
     border-top: 1px solid var(--line);
   }
 }
+
+/* Leader scheduling builds on the existing community cards and forms. */
+.status-cancelled {
+  color: var(--muted);
+  background: #ecece5;
+}
+.scheduling-section {
+  margin-block: 40px;
+}
+.scheduling-section > h2 {
+  margin-bottom: 20px;
+}
+.team-card-grid,
+.staffing-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+.team-link {
+  display: block;
+}
+.team-link h2 {
+  font-size: 1.8rem;
+}
+.team-link .text-link {
+  display: inline-block;
+  margin-top: 20px;
+}
+.team-link:hover {
+  border-color: var(--green);
+}
+.staffing-grid {
+  margin-block: 20px;
+}
+.coverage-count {
+  margin-top: 15px !important;
+}
+.coverage-count strong {
+  font-size: 1.25rem;
+  color: var(--ink);
+}
+.staffing-form {
+  margin-top: 20px;
+  max-width: 640px;
+}
+.member-row {
+  margin-top: 16px;
+}
+.member-row h3 {
+  margin-top: 0;
+}
+.compact-form {
+  background: transparent;
+  padding: 16px 0 0;
+  border: 0;
+}
+.assignment-tools {
+  padding: 15px 20px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+}
+.assignment-tools button,
+.member-row button {
+  min-height: 44px;
+}
+.assignment-editor {
+  margin: 12px;
+}
+.assignment-editor h3 {
+  font-size: 1rem;
+}
+.editor-close {
+  margin-top: 18px;
+  min-height: 44px;
+}
+.confirm-panel {
+  margin-top: 20px;
+  font-size: 0.8rem;
+  padding: 16px;
+  background: #f7f0df;
+  border: 1px solid #e7dcbd;
+  border-radius: 6px;
+}
+.confirm-panel button {
+  margin: 14px 12px 0 0;
+}
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-width: 800px;
+}
+.history-list li {
+  padding: 17px 20px;
+  border-left: 2px solid #b2bda7;
+  margin-block: 12px;
+  background: var(--paper);
+  font-size: 0.8rem;
+}
+.history-list p {
+  margin-top: 8px;
+}
+.history-list small {
+  display: block;
+  color: var(--muted);
+  margin-top: 8px;
+  line-height: 1.7;
+}
+.conflict-center-list {
+  max-width: 860px;
+  margin-top: 30px;
+}
+.conflict-center-list .assignment-person h2 {
+  font-size: 1.7rem;
+}
+.conflict-center-list .assignment-person > p {
+  margin-top: 6px;
+}
+.declined-note {
+  padding: 12px 20px;
+  background: #f7f0df;
+  color: #645129;
+  font-size: 0.8rem;
+}
+.template-card {
+  margin-top: 20px;
+}
+.template-card h3 {
+  margin-top: 0;
+}
+.generation-result {
+  margin-top: 18px;
+  font-size: 0.8rem;
+  line-height: 1.8;
+}
+.generation-result .text-link {
+  display: block;
+  margin-top: 8px;
+}
+.app-header nav {
+  flex-wrap: wrap;
+}
+@media (max-width: 1050px) {
+  .app-header-inner {
+    flex-wrap: wrap;
+  }
+  .team-card-grid,
+  .staffing-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  .team-card-grid,
+  .staffing-grid {
+    grid-template-columns: 1fr;
+  }
+  .app-header nav {
+    gap: 10px 20px;
+  }
+  .assignment-editor {
+    padding: 18px;
+    margin: 7px;
+  }
+  .conflict-center-list .assignment-main {
+    flex-wrap: wrap;
+  }
+}

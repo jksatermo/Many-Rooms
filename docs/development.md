@@ -20,9 +20,15 @@ erDiagram
   OrganizationMembership ||--o{ AssignmentResponse : responds
   OrganizationMembership ||--o{ VolunteerUnavailability : declares
   Organization ||--o{ VolunteerUnavailability : scopes
+  Event ||--o{ EventStaffingRequirement : requests
+  Team ||--o{ EventStaffingRequirement : supplies
+  VolunteerAssignment ||--o{ AssignmentHistory : traces
+  OrganizationMembership o|--o{ AssignmentHistory : acts
+  Organization ||--o{ EventTemplate : owns
+  EventTemplate o|--o{ Event : generates
 ```
 
-Entities use GUID primary keys and creation/update timestamps. Scoped entities have `(OrganizationId, Id)` alternate keys for tenant-safe foreign keys. Uniqueness constraints prevent duplicate memberships and team memberships; date/status/version checks reject invalid rows. Status is summarized on the assignment while responses provide its history.
+Entities use GUID primary keys and creation/update timestamps. Scoped entities have `(OrganizationId, Id)` alternate keys for tenant-safe foreign keys. Uniqueness constraints prevent duplicate memberships and team memberships; date/status/version checks reject invalid rows. Status is summarized on the assignment; response rows remain immutable and AssignmentHistory records leader and volunteer changes. TeamMember removal deactivates rather than deletes the row.
 
 ## API
 
@@ -44,7 +50,7 @@ Request body:
 
 The response is the updated assignment DTO. `Declined` is the other allowed decision. Validation failures return 400, unauthenticated requests 401, denied membership/ownership 403, missing scoped resources 404, and stale/closed assignments 409. Errors use ProblemDetails. On 409 clients reload the current state and ask the user to decide again; they do not silently resubmit.
 
-Swagger UI and `/openapi/v1.json` are available in Development. Add `X-ManyRooms-Demo: true` to protected API requests. No write endpoints for arbitrary organizations, users, events, or teams are exposed in this milestone.
+Swagger UI and `/openapi/v1.json` are available in Development. Add `X-ManyRooms-Demo: true` to protected API requests. Organization/user/team creation is not exposed. Leaders can create events, manage existing team memberships, and schedule volunteers through scoped endpoints.
 
 ### Milestone 2 endpoints
 
@@ -89,6 +95,38 @@ Assignment DTOs now include `eventEndsAt` and `conflicts`. Dashboard/event respo
 
 `GET /api/demo/context?persona=leader` selects the fixed leader context for the development entry screen. Protected leader-demo calls send `X-ManyRooms-Demo: leader`; the ordinary `true` value continues to select Alex. Both are openly shared development personas.
 
+### Milestone 3 endpoints
+
+These are also relative to `/api/organizations/{organizationId}` and require the stored leader membership role. Every mutation validates organization-scoped resource IDs in the application layer.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/leader/teams` | Teams with active-member and upcoming-assignment counts |
+| GET | `/leader/teams/{teamId}` | Active members, positions, and upcoming assignments |
+| GET | `/leader/organization-members` | Existing organization memberships eligible to join teams |
+| POST | `/leader/teams/{teamId}/members` | Add or reactivate a member with an optional position |
+| PUT | `/leader/teams/{teamId}/members/{id}` | Edit position with `expectedVersion` |
+| DELETE | `/leader/teams/{teamId}/members/{id}?expectedVersion=N` | Deactivate when no future active assignment remains |
+| GET, POST | `/leader/events/{eventId}/staffing` | Read calculated coverage or add a staffing requirement |
+| PUT | `/leader/events/{eventId}/staffing/{id}` | Edit role/count with `expectedVersion` |
+| DELETE | `/leader/events/{eventId}/staffing/{id}?expectedVersion=N` | Remove a requirement without cancelling assignments |
+| POST | `/leader/assignments/{id}/preview` | Preview a same-team replacement or role edit |
+| PUT | `/leader/assignments/{id}` | Reassign/edit role; reset response and append history |
+| DELETE | `/leader/assignments/{id}?expectedVersion=N` | Soft-cancel; returns the cancelled assignment DTO (200) |
+| GET | `/leader/assignments/{id}/history` | Assignment history, newest first |
+| GET | `/leader/events/{eventId}/history` | All assignment history for an event |
+| GET | `/leader/conflicts` | Future conflicted assignments and declined invitations |
+| GET | `/leader/assignments/{id}/replacement-candidates` | Deterministic same-team candidate suggestions |
+| GET, POST | `/leader/event-templates` | List/create weekly templates in the organization timezone |
+| POST | `/leader/event-templates/{id}/generate` | Generate a bounded range of persisted events idempotently |
+| POST | `/leader/events` | Create a future one-time event |
+
+Existing create/preview routes remain. Assignment edit/preview body is `{ "teamMemberId": "<id>", "roleName": "Welcome desk", "expectedVersion": 1 }`. Member creation accepts `membershipId` and optional `positionName`; editing accepts `positionName` and `expectedVersion`. Staffing creation accepts `teamId`, optional `roleName`, and `desiredCount`; editing retains the team and adds `expectedVersion`.
+
+Template creation accepts `title`, `description`, `location`, `dayOfWeek` (0 Sunday through 6 Saturday), `localStartTime` (`HH:mm`), `durationMinutes`, and `startsOn` (`YYYY-MM-DD`). Generation accepts `{ "throughDate": "YYYY-MM-DD" }` and returns `createdEvents`, `existingCount`, and `skippedDates`. One-time creation accepts the text fields plus offset-bearing `startsAt` and `endsAt`.
+
+Assignment DTOs add `teamId`, `teamMemberId`, and `isCancelled` without changing response status values. Team-member DTOs add optional `positionName` and `version`; the existing selectable-member endpoint returns active rows. Cancelled rows stay visible but are excluded from staffing/conflicts. Reads and writes return fresh conflict information. See [scheduling rules](scheduling.md) for counting, history, candidate sorting, and DST behavior.
+
 ## Migrations
 
 Apply committed migrations with `npm run db:migrate`. To add a schema change after configuring `ConnectionStrings__ManyRooms` in your process or user secrets:
@@ -101,7 +139,11 @@ dotnet ef database update --project src/ManyRooms.Infrastructure --startup-proje
 
 Review the generated migration, test it against a clean PostgreSQL database, and commit its model snapshot. Ordinary API startup does not silently migrate a database.
 
-For the Milestone 1 → Milestone 2 upgrade, apply the new migration and rerun the additive seed; retain the existing Docker volume. Integration tests verify both the full migration chain from an empty schema and a forward upgrade containing saved Milestone 1 responses. The initial migration is preserved in source control.
+For a Milestone 1 or Milestone 2 upgrade, retain the existing Docker volume and back up any data you need before schema changes. Run `npm run db:migrate`, then `npm run db:seed`. The first two migration files remain unchanged. The Milestone 3 forward migration adds scheduling tables/columns, changes active-assignment uniqueness to exclude cancelled rows, and backfills explicitly labeled legacy history without rewriting response records.
+
+The upgrade does not shift existing event dates or replace saved volunteer decisions. Team members initially remain active; old events have no template. New staffing requirements and weekly templates are optional. Seed additions demonstrate upcoming M3 workflows separately from old event dates. Tests verify the full migration chain in empty PostgreSQL schemas and a forward upgrade containing saved assignments, responses, and unavailability. The live upgrade is also compared with a pre-upgrade row snapshot; see [verification](verification.md).
+
+Rolling back this migration removes M3 history, requirements, templates, and cancellation metadata. Prefer forward fixes for any database with meaningful scheduling changes; the disposable local reset in the README intentionally discards all data.
 
 ## Production artifacts
 
@@ -119,6 +161,6 @@ The API publish directory, Vite `apps/web/dist`, and Expo `apps/mobile/dist` are
 - **Database connection refused:** run `npm run db:up` and inspect `docker compose ps`.
 - **Password changed but volume retained:** PostgreSQL initializes its password once. Restore the password associated with the volume, or deliberately recreate the local database as described in the README.
 - **Demo unavailable:** use Development, enable the demo setting, apply migrations, and run the seed.
-- **No upcoming events:** the demo’s original event dates may have passed; recreate the local demo database for new dates.
+- **No upcoming events:** seeded dates may have passed; create new events in the leader demo or recreate only a disposable local demo database.
 - **Phone cannot connect:** use the host LAN address in the mobile public API configuration, allow the local API port through the firewall, and bind the development API to that interface.
 - **Stale response:** another browser changed the assignment; reload and respond using the current version.

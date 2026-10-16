@@ -197,7 +197,10 @@ export function EventDetails() {
                           </h4>
                           <p>{assignment.roleName}</p>
                         </div>
-                        <Status value={assignment.status} />
+                        <Status
+                          value={assignment.status}
+                          cancelled={assignment.isCancelled}
+                        />
                       </div>
                       <Conflicts
                         conflicts={assignment.conflicts}
@@ -206,13 +209,15 @@ export function EventDetails() {
                       {assignment.isCurrentUser && (
                         <div className="assignment-response">
                           <p>
-                            {started
-                              ? 'This event has started, so responses are closed.'
-                              : assignment.status === 'Pending'
-                                ? 'Can you lend a hand? Let your team know.'
-                                : 'Plans changed? You can update your response before the event starts.'}
+                            {assignment.isCancelled
+                              ? 'This assignment was cancelled. No response is needed.'
+                              : started
+                                ? 'This event has started, so responses are closed.'
+                                : assignment.status === 'Pending'
+                                  ? 'Can you lend a hand? Let your team know.'
+                                  : 'Plans changed? You can update your response before the event starts.'}
                           </p>
-                          {!started && (
+                          {!started && !assignment.isCancelled && (
                             <div
                               className="response-buttons"
                               aria-label={`Your response for ${assignment.roleName}`}

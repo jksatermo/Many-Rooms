@@ -10,7 +10,7 @@ public sealed record EventSummaryDto(Guid Id, string Title, DateTimeOffset Start
 public sealed record AssignmentDto(Guid Id, Guid EventId, string EventTitle, DateTimeOffset EventStartsAt,
     string TeamName, string RoleName, Guid VolunteerId, string VolunteerName, string Status,
     DateTimeOffset? RespondedAt, int Version, bool IsCurrentUser, DateTimeOffset EventEndsAt,
-    IReadOnlyList<ScheduleConflictDto> Conflicts);
+    IReadOnlyList<ScheduleConflictDto> Conflicts, Guid TeamId = default, Guid TeamMemberId = default, bool IsCancelled = false);
 public sealed record EventDetailsDto(Guid Id, string Title, string Description, DateTimeOffset StartsAt,
     DateTimeOffset EndsAt, string Location, IReadOnlyList<AssignmentDto> Assignments);
 public sealed record DashboardDto(OrganizationDto Organization, CurrentUserDto CurrentUser,
@@ -22,7 +22,7 @@ public sealed record ScheduleConflictDto(string Type, string Message, DateTimeOf
 public sealed record UnavailabilityDto(Guid Id, DateTimeOffset StartsAt, DateTimeOffset EndsAt, string? Note, int Version);
 public sealed record CreateUnavailabilityRequest(string? StartsAt, string? EndsAt, string? Note);
 public sealed record UpdateUnavailabilityRequest(string? StartsAt, string? EndsAt, string? Note, int ExpectedVersion);
-public sealed record TeamMemberDto(Guid Id, Guid TeamId, string TeamName, Guid MembershipId, Guid VolunteerId, string VolunteerName);
+public sealed record TeamMemberDto(Guid Id, Guid TeamId, string TeamName, Guid MembershipId, Guid VolunteerId, string VolunteerName, string? PositionName = null, int Version = 1);
 public sealed record CreateAssignmentRequest(Guid TeamMemberId, string? RoleName);
 public sealed record AssignmentPreviewDto(IReadOnlyList<ScheduleConflictDto> Conflicts);
 
@@ -61,7 +61,8 @@ public interface ILeaderAssignmentStore
     Task<Event?> FindEventAsync(Guid organizationId, Guid eventId, CancellationToken cancellationToken);
     Task<TeamMember?> FindTeamMemberAsync(Guid organizationId, Guid teamMemberId, CancellationToken cancellationToken);
     Task<bool> AssignmentExistsAsync(Guid organizationId, Guid eventId, Guid teamMemberId, string roleName, CancellationToken cancellationToken);
-    Task SaveAssignmentAsync(VolunteerAssignment assignment, CancellationToken cancellationToken);
+    Task<T> InOrganizationTransactionAsync<T>(Guid organizationId, Func<Task<T>> action, CancellationToken cancellationToken);
+    Task SaveAssignmentAsync(VolunteerAssignment assignment, Guid actorUserId, CancellationToken cancellationToken);
     Task<IReadOnlyList<ScheduleConflictDto>> GetConflictsAsync(VolunteerAssignment assignment, CancellationToken cancellationToken);
 }
 
@@ -82,5 +83,6 @@ public static class AssignmentMapping
         assignment.Id, assignment.EventId, assignment.Event.Title, assignment.Event.StartsAt,
         assignment.TeamMember.Team.Name, assignment.RoleName, assignment.TeamMember.Membership.UserId,
         assignment.TeamMember.Membership.User.DisplayName, assignment.Status.ToString(), assignment.RespondedAt,
-        assignment.Version, assignment.TeamMember.Membership.UserId == currentUserId, assignment.Event.EndsAt, conflicts ?? []);
+        assignment.Version, assignment.TeamMember.Membership.UserId == currentUserId, assignment.Event.EndsAt, conflicts ?? [],
+        assignment.TeamMember.TeamId, assignment.TeamMemberId, assignment.IsCancelled);
 }

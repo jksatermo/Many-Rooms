@@ -48,6 +48,8 @@ public static class SchedulingEndpoints
                 ? await next(context)
                 : Results.Problem(statusCode: 403, title: "Leader access required", detail: "A leader membership is required in this organization.");
         });
+        leader.MapLeaderSchedulingEndpoints();
+        leader.MapRecurrenceEndpoints();
         leader.MapGet("/events/{eventId:guid}", async (Guid organizationId, Guid eventId, HttpContext context,
             ICommunityQueries queries, CancellationToken cancellationToken) =>
         {

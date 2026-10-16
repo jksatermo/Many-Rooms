@@ -128,6 +128,23 @@ public sealed class ScheduleConflictTests
     }
 
     [Fact]
+    public void Cancelled_assignment_does_not_block_another_assignment()
+    {
+        var target = Assignment();
+        var cancelled = Assignment(target);
+        cancelled.IsCancelled = true;
+        Assert.Empty(ScheduleConflictDetector.Detect(target, [cancelled], []));
+    }
+
+    [Fact]
+    public void Cancelled_target_has_no_conflicts_even_when_otherwise_overlapping()
+    {
+        var target = Assignment();
+        target.IsCancelled = true;
+        Assert.Empty(ScheduleConflictDetector.Detect(target, [Assignment(target)], [Unavailable(target)]));
+    }
+
+    [Fact]
     public void Comparison_uses_instants_across_different_offsets()
     {
         var target = Assignment();

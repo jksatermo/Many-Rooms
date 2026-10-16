@@ -4,7 +4,15 @@ import { ApiError } from '../api';
 import type { AssignmentStatus, EventSummary } from '../types';
 import { day, shortMonth, time } from '../format';
 
-export function Status({ value }: { value: AssignmentStatus }) {
+export function Status({
+  value,
+  cancelled = false,
+}: {
+  value: AssignmentStatus;
+  cancelled?: boolean;
+}) {
+  if (cancelled)
+    return <span className="status status-cancelled">Cancelled</span>;
   return (
     <span className={`status status-${value.toLowerCase()}`}>
       <span aria-hidden="true">

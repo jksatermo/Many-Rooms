@@ -11,11 +11,12 @@ These header values are public information. Anyone with access to this developme
 - An organization ID in a URL is not an authorization grant. Membership is checked against PostgreSQL for every organization endpoint.
 - The assignment-response use case repeats the membership check and validates assignment ownership so non-HTTP clients cannot accidentally bypass it.
 - Availability endpoints resolve the current membership and permit only that owner to list, create, edit, or remove unavailable ranges. Foreign-owned IDs are hidden as 404.
-- Leader endpoints read the role from the organization membership. Selecting a leader route or submitting a role field is not sufficient. Leader assignment creation also checks the role in the application use case.
+- Leader endpoints read the role from the organization membership. Selecting a leader route or submitting a role field is not sufficient. Leader team, staffing, assignment/history/candidate, and recurrence use cases also check the stored role in the application layer.
 - Organization-scoped queries filter by organization before looking up a resource.
 - Composite foreign keys include `OrganizationId` and reject cross-organization relationships, including team membership and assignments.
 - Only `Accepted` and `Declined` are valid responses. Responses close when the event begins.
 - The request’s expected version and EF optimistic concurrency prevent a stale tab from overwriting another response. Updating the assignment and inserting response history occur in one transaction.
+- Leader assignment edits, cancellation, team-member edits/removal, and staffing edits/removal require expected versions. A replacement rechecks same-team active membership and resets the response; the old owner immediately loses response authority. Cancelled assignments cannot receive responses. Leader and volunteer changes append scoped assignment history atomically.
 - Availability edits and deletes also require an expected version. Conflict results are calculated from current persisted data; they do not grant authority to change another volunteer’s response.
 - Private availability notes are returned to their owner only. A leader’s conflict explanation uses the blocked interval without exposing its note.
 

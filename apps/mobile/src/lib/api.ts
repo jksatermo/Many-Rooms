@@ -23,11 +23,14 @@ export interface Assignment {
   eventTitle: string;
   eventStartsAt: string;
   eventEndsAt: string;
+  teamId: string;
+  teamMemberId: string;
   teamName: string;
   roleName: string;
   volunteerId: string;
   volunteerName: string;
   status: "Pending" | "Accepted" | "Declined";
+  isCancelled: boolean;
   respondedAt: string | null;
   version: number;
   isCurrentUser: boolean;

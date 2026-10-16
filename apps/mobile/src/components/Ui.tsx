@@ -95,13 +95,19 @@ export function ErrorCard({
 }
 export function Status({
   status,
+  isCancelled = false,
 }: {
   status: "Pending" | "Accepted" | "Declined";
+  isCancelled?: boolean;
 }) {
   return (
     <View style={styles.badge}>
       <Text style={styles.badgeText}>
-        {status === "Pending" ? "Awaiting reply" : status}
+        {isCancelled
+          ? "Cancelled"
+          : status === "Pending"
+            ? "Awaiting reply"
+            : status}
       </Text>
     </View>
   );

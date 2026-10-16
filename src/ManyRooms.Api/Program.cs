@@ -18,6 +18,10 @@ builder.Services.AddScoped<ICommunityQueries>(provider => provider.GetRequiredSe
 builder.Services.AddScoped<IAssignmentStore>(provider => provider.GetRequiredService<CommunityStore>());
 builder.Services.AddScoped<IAvailabilityStore>(provider => provider.GetRequiredService<CommunityStore>());
 builder.Services.AddScoped<ILeaderAssignmentStore>(provider => provider.GetRequiredService<CommunityStore>());
+builder.Services.AddScoped<ILeaderSchedulingStore>(provider => provider.GetRequiredService<CommunityStore>());
+builder.Services.AddScoped<LeaderSchedulingService>();
+builder.Services.AddScoped<IRecurrenceStore, RecurrenceStore>();
+builder.Services.AddScoped<RecurrenceService>();
 builder.Services.AddScoped<AssignmentResponseService>();
 builder.Services.AddScoped<AvailabilityService>();
 builder.Services.AddScoped<LeaderAssignmentService>();

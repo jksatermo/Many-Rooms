@@ -8,12 +8,12 @@ public static class ScheduleConflictDetector
     public static IReadOnlyList<ScheduleConflictDto> Detect(VolunteerAssignment target,
         IEnumerable<VolunteerAssignment> assignments, IEnumerable<VolunteerUnavailability> unavailable)
     {
-        if (target.Status == AssignmentStatus.Declined) return [];
+        if (target.IsCancelled || target.Status == AssignmentStatus.Declined) return [];
         var conflicts = new List<ScheduleConflictDto>();
         foreach (var other in assignments)
         {
             if (other.OrganizationId != target.OrganizationId || other.Id == target.Id ||
-                other.EventId == target.EventId || other.Status == AssignmentStatus.Declined ||
+                other.EventId == target.EventId || other.IsCancelled || other.Status == AssignmentStatus.Declined ||
                 other.TeamMember.MembershipId != target.TeamMember.MembershipId ||
                 !Overlaps(target.Event.StartsAt, target.Event.EndsAt, other.Event.StartsAt, other.Event.EndsAt)) continue;
             conflicts.Add(new("OverlappingAssignment", $"Overlaps an assignment at {other.Event.Title}.",

@@ -64,7 +64,7 @@ jobs:
         working-directory: apps/web
         run: npx playwright install --with-deps chromium
       - run: npm run build --prefix apps/web
-      - name: Verify responses, availability, conflicts, and leader boundaries in the browser
+      - name: Verify volunteer responses and leader scheduling against PostgreSQL
         run: |
           npm run dev:api > /tmp/manyrooms-api.log 2>&1 &
           api_pid=$!

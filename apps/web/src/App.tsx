@@ -8,6 +8,9 @@ import { Events } from './pages/Events';
 import { EventDetails } from './pages/EventDetails';
 import { Availability } from './pages/Availability';
 import { LeaderEvent } from './pages/LeaderEvent';
+import { Teams, TeamDetails } from './pages/Teams';
+import { ConflictCenter } from './pages/ConflictCenter';
+import { EventPlanning } from './pages/EventPlanning';
 
 export function App() {
   const { pathname } = useLocation();
@@ -34,6 +37,10 @@ export function App() {
           <Route path="events/:eventId" element={<EventDetails />} />
           <Route path="availability" element={<Availability />} />
           <Route path="leader/events/:eventId" element={<LeaderEvent />} />
+          <Route path="leader/teams" element={<Teams />} />
+          <Route path="leader/teams/:teamId" element={<TeamDetails />} />
+          <Route path="leader/conflicts" element={<ConflictCenter />} />
+          <Route path="leader/planning" element={<EventPlanning />} />
         </Route>
         <Route
           path="*"

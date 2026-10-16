@@ -100,11 +100,16 @@ export default function DashboardScreen() {
                     dashboard.organization.timeZone,
                   )}
                 </Text>
-                <Status status={assignment.status} />
-                <Conflicts
-                  conflicts={assignment.conflicts}
-                  timeZone={dashboard.organization.timeZone}
+                <Status
+                  status={assignment.status}
+                  isCancelled={assignment.isCancelled}
                 />
+                {!assignment.isCancelled && (
+                  <Conflicts
+                    conflicts={assignment.conflicts}
+                    timeZone={dashboard.organization.timeZone}
+                  />
+                )}
                 <Button
                   secondary
                   label="View assignment"
